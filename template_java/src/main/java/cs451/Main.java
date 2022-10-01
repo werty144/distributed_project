@@ -55,6 +55,9 @@ public class Main {
         System.out.println(parser.config() + "\n");
 
         System.out.println("Doing some initialization\n");
+        Host thisHost = parser.hosts().stream().filter(p -> p.getId() == parser.myId()).findAny().orElse(null);
+        assert thisHost != null;
+        thisHost.start();
 
         System.out.println("Broadcasting and delivering messages...\n");
 

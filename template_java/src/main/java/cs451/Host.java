@@ -53,4 +53,7 @@ public class Host {
         return port;
     }
 
+    public void start() {
+        System.out.println("Starting host with id " + id);
+    }
 }
