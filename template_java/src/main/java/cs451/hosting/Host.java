@@ -1,4 +1,4 @@
-package cs451;
+package cs451.hosting;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -51,9 +51,5 @@ public class Host {
 
     public int getPort() {
         return port;
-    }
-
-    public void start() {
-        System.out.println("Starting host with id " + id);
     }
 }

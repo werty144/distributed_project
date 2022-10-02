@@ -1,9 +1,8 @@
 package cs451;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.Socket;
+import cs451.hosting.Host;
+import cs451.hosting.Server;
+import cs451.parsing.Parser;
 
 public class Main {
 
@@ -55,9 +54,7 @@ public class Main {
         System.out.println(parser.config() + "\n");
 
         System.out.println("Doing some initialization\n");
-        Host thisHost = parser.hosts().stream().filter(p -> p.getId() == parser.myId()).findAny().orElse(null);
-        assert thisHost != null;
-        thisHost.start();
+        doJob(parser);
 
         System.out.println("Broadcasting and delivering messages...\n");
 
@@ -66,6 +63,22 @@ public class Main {
         while (true) {
             // Sleep for 1 hour
             Thread.sleep(60 * 60 * 1000);
+        }
+    }
+
+    static void doJob(Parser parser) {
+        Host thisHost = parser.hosts().stream().filter(p -> p.getId() == parser.myId()).findAny().orElse(null);
+        assert thisHost != null;
+        Server server = new Server(thisHost, parser.hosts());
+        server.start();
+
+        if (thisHost.getId() == 2) {
+            Host host1 = parser.hosts().stream().filter(p -> p.getId() == 1).findAny().orElse(null);
+            assert host1 != null;
+            Message message1 = new Message("huy1", thisHost, host1);
+            server.sendMessagePL(message1);
+            Message message2 = new Message("huy2", thisHost, host1);
+            server.sendMessagePL(message2);
         }
     }
 }
