@@ -39,6 +39,11 @@ public class Server {
         sender.start();
     }
 
+    public void stop() {
+        receiver.interrupt();
+        sender.interrupt();
+    }
+
     public void sendMessagePL(Message message) {
         Logs.add("b " + message.getId());
         sender.sendMessagePL(message);
