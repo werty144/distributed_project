@@ -7,24 +7,22 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class Sender extends Thread {
     private DatagramSocket UDPSocket;
-    private ArrayList<Message> SLMessages = new ArrayList<>();
+    private final List<Message> SLMessages = Collections.synchronizedList(new ArrayList<>());
     public Sender(DatagramSocket UDPSocket) {
         this.UDPSocket = UDPSocket;
     }
 
     public void run() {
         while (true) {
-//            try {
-//                Thread.sleep(1000);
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-            for (Message message: SLMessages) {
-                sendMessageFLL(message);
+            synchronized (SLMessages) {
+                for (Message message : SLMessages) {
+                    sendMessageFLL(message);
+                }
             }
         }
     }

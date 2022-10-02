@@ -1,14 +1,9 @@
 package cs451.hosting;
-
-import cs451.Message;
-
-import java.awt.image.DataBufferUShort;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.SocketException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+
 
 public class Receiver extends Thread {
     private DatagramSocket UDPSocket;
@@ -45,9 +40,15 @@ public class Receiver extends Thread {
 
     private void receivePL(DatagramPacket packet) {
         String content = new String(packet.getData(), 0, packet.getLength());
-        if (!PLMessages.contains(content)) {
-            PLMessages.add(content);
-            server.receiveMessagePL(packet.getAddress().toString(), packet.getPort(), content);
+        String ip = packet.getAddress().toString();
+        if (ip.startsWith("/")) {
+            ip = ip.substring(1);
+        }
+        String uniqueID = ip + '$' + packet.getPort() + '$' + content;
+        if (!PLMessages.contains(uniqueID)) {
+            PLMessages.add(uniqueID);
+            server.receiveMessagePL(ip, packet.getPort(), content);
         }
     }
 }
+

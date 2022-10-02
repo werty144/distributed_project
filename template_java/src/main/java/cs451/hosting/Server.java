@@ -4,7 +4,7 @@ import cs451.Message;
 
 import java.net.DatagramSocket;
 import java.net.SocketException;
-import java.util.List;
+import java.util.*;
 
 public class Server {
     private Host host;
@@ -12,6 +12,7 @@ public class Server {
     private Receiver receiver;
     private Sender sender;
     private List<Host> hosts;
+    private final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
 
     public Server(Host host, List<Host> hosts) {
         this.host = host;
@@ -25,16 +26,32 @@ public class Server {
         sender = new Sender(UDPSocket);
     }
 
+    public Host getHost() {
+        return host;
+    }
+
+    public List<String> getLogs() {
+        return Logs;
+    }
+
     public void start() {
         receiver.start();
         sender.start();
     }
 
     public void sendMessagePL(Message message) {
+        Logs.add("b " + message.getId());
         sender.sendMessagePL(message);
     }
 
     public void receiveMessagePL(String ip, int port, String content) {
-        System.out.println("Received message from " + ip + ":" + port + ". Content: " + content);
+        int senderID = getHostID(ip,  port);
+        Logs.add("d " + senderID + " " + content);
+    }
+
+    int getHostID(String ip, int port) {
+        Optional<Host> host = hosts.stream().filter(h -> (h.getIp().equals(ip)) && (h.getPort() == port)).findAny();
+        assert host.isPresent();
+        return host.get().getId();
     }
 }
