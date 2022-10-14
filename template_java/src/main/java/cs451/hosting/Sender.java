@@ -12,21 +12,30 @@ public class Sender extends Thread {
     private DatagramSocket UDPSocket;
     private Server server;
     private final List<Message> SLMessages = Collections.synchronizedList(new ArrayList<>());
-    private final Map<Integer, LinkedList<Message>> receiversToMessages = new HashMap<>();
+    private final Map<Integer, LinkedList<String>> receiversToMessages = new HashMap<>();
     private final Map<Integer, Host> idsToHosts = new HashMap<>();
     public Sender(DatagramSocket UDPSocket, Server server) {
         this.UDPSocket = UDPSocket;
         this.server = server;
     }
 
+    void mySleep(Integer mls) {
+        try {
+            Thread.sleep(mls);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
     private void sortMessages() {
         synchronized (SLMessages) {
             for (Message message : SLMessages) {
                 if (!receiversToMessages.containsKey(message.getReceiver().getId())) {
-                    receiversToMessages.put(message.getReceiver().getId(), new LinkedList<Message>());
+                    receiversToMessages.put(message.getReceiver().getId(), new LinkedList<String>());
                     idsToHosts.put(message.getReceiver().getId(), message.getReceiver());
                 }
-                receiversToMessages.get(message.getReceiver().getId()).add(message);
+                receiversToMessages.get(message.getReceiver().getId()).add(message.getContent());
             }
         }
     }
@@ -35,7 +44,7 @@ public class Sender extends Thread {
         for (Integer id : receiversToMessages.keySet()) {
             int messagesConcatenated = 0;
             StringBuilder concatenatedMessage = new StringBuilder();
-            LinkedList<Message> messages = receiversToMessages.get(id);
+            LinkedList<String> messages = receiversToMessages.get(id);
             while (!messages.isEmpty()) {
                 if (messagesConcatenated == maxConcatNumber) {
                     Message message = new Message(
