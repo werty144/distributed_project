@@ -115,7 +115,7 @@ public class Main {
             Host receiver = parser.hosts().stream().filter(p -> p.getId() == i).findAny().orElse(null);
             assert receiver != null;
             for (int id = 1; id < m + 1; id++) {
-                Message message = new Message(Integer.toString(id), server.getHost(), receiver, id);
+                Message message = new Message(Integer.toString(id), server.getHost(), receiver);
                 server.sendMessagePL(message);
             }
         }

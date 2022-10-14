@@ -6,13 +6,11 @@ public class Message {
     private Host sender;
     private Host receiver;
     private String content;
-    private int id;
 
-    public Message(String content, Host sender, Host receiver, int id) {
+    public Message(String content, Host sender, Host receiver) {
         this.content = content;
         this.sender = sender;
         this.receiver = receiver;
-        this.id = id;
     }
 
     public Host getReceiver() {
@@ -25,9 +23,5 @@ public class Message {
 
     public String getContent() {
         return content;
-    }
-
-    public int getId() {
-        return id;
     }
 }

@@ -23,7 +23,7 @@ public class Server {
             e.printStackTrace();
         }
         receiver = new Receiver(UDPSocket, this);
-        sender = new Sender(UDPSocket);
+        sender = new Sender(UDPSocket, this);
     }
 
     public Host getHost() {
@@ -45,7 +45,7 @@ public class Server {
     }
 
     public void sendMessagePL(Message message) {
-        Logs.add("b " + message.getId());
+        Logs.add("b " + message.getContent());
         sender.sendMessagePL(message);
     }
 

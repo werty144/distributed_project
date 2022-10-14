@@ -31,23 +31,27 @@ public class Receiver extends Thread {
             e.printStackTrace();
             return;
         }
-        receiveSL(packet);
-    }
 
-    private void receiveSL(DatagramPacket packet) {
-        receivePL(packet);
-    }
-
-    private void receivePL(DatagramPacket packet) {
         String content = new String(packet.getData(), 0, packet.getLength());
         String ip = packet.getAddress().toString();
         if (ip.startsWith("/")) {
             ip = ip.substring(1);
         }
-        String uniqueID = ip + '$' + packet.getPort() + '$' + content;
+
+        for (String individualMessage : content.split("&")) {
+            receiveSL(ip, packet.getPort(), individualMessage);
+        }
+    }
+
+    private void receiveSL(String ip, Integer port, String content) {
+        receivePL(ip, port, content);
+    }
+
+    private void receivePL(String ip, Integer port, String content) {
+        String uniqueID = ip + '$' + port + '$' + content;
         if (!PLMessages.contains(uniqueID)) {
             PLMessages.add(uniqueID);
-            server.receiveMessagePL(ip, packet.getPort(), content);
+            server.receiveMessagePL(ip, port, content);
         }
     }
 }
