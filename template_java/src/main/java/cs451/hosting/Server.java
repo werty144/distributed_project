@@ -49,14 +49,29 @@ public class Server {
         sender.sendMessagePL(message);
     }
 
+    public void receiveMessageFLL(String ip, int port, String message) {
+        acknowledge(ip, port, message);
+    }
+
+    void acknowledge(String ip, int port, String message) {
+        Host sender = getHost(ip, port);
+        Message ack = new Message("ack$" + message, this.host, sender);
+        this.sender.sendMessageFLL(ack);
+    }
+
+    public void receiveAcknowledgement(String ip, int port, String message) {
+        Host sender = getHost(ip, port);
+        this.sender.acknowledged(sender, message);
+    }
+
     public void receiveMessagePL(String ip, int port, String content) {
-        int senderID = getHostID(ip,  port);
+        int senderID = getHost(ip,  port).getId();
         Logs.add("d " + senderID + " " + content);
     }
 
-    int getHostID(String ip, int port) {
+    Host getHost(String ip, int port) {
         Optional<Host> host = hosts.stream().filter(h -> (h.getIp().equals(ip)) && (h.getPort() == port)).findAny();
         assert host.isPresent();
-        return host.get().getId();
+        return host.get();
     }
 }

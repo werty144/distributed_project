@@ -38,7 +38,13 @@ public class Receiver extends Thread {
             ip = ip.substring(1);
         }
 
+        if (content.startsWith("ack$")) {
+            server.receiveAcknowledgement(ip, packet.getPort(), content.substring(4));
+            return;
+        }
+
         for (String individualMessage : content.split("&")) {
+            server.receiveMessageFLL(ip, packet.getPort(), individualMessage);
             receiveSL(ip, packet.getPort(), individualMessage);
         }
     }

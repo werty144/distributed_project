@@ -107,4 +107,13 @@ public class Sender extends Thread {
     public void sendMessagePL(Message message) {
         sendMessageSL(message);
     }
+
+    public void acknowledged(Host receiver, String content) {
+        synchronized (SLMessages) {
+            SLMessages.removeIf(m ->
+                    (m.getReceiver().getId() == receiver.getId()) &&
+                            m.getContent().equals(content)
+            );
+        }
+    }
 }
