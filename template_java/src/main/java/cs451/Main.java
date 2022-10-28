@@ -28,8 +28,10 @@ public class Main {
     private static void logServerOutput() {
         try {
             FileWriter writer = new FileWriter(parser.output());
-            for (String log: server.getLogs()) {
-                writer.write(log + '\n');
+            synchronized (server.Logs) {
+                for (String log : server.Logs) {
+                    writer.write(log + '\n');
+                }
             }
             writer.close();
         } catch (Exception e) {

@@ -19,15 +19,6 @@ public class Sender extends Thread {
         this.server = server;
     }
 
-    void mySleep(Integer mls) {
-        try {
-            Thread.sleep(mls);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-    }
-
     private void sortMessages() {
         synchronized (SLMessages) {
             for (Message message : SLMessages) {
@@ -45,6 +36,7 @@ public class Sender extends Thread {
             int messagesConcatenated = 0;
             StringBuilder concatenatedMessage = new StringBuilder();
             LinkedList<String> messages = receiversToMessages.get(id);
+            int messageBucketsSent = 0;
             while (!messages.isEmpty()) {
                 if (messagesConcatenated == maxConcatNumber) {
                     Message message = new Message(
@@ -53,11 +45,21 @@ public class Sender extends Thread {
                             idsToHosts.get(id)
                     );
                     sendMessageFLL(message);
+                    messageBucketsSent += 1;
                     messagesConcatenated = 0;
                     concatenatedMessage.setLength(0);
                 }
                 concatenatedMessage.append(messages.remove()).append("&");
                 messagesConcatenated += 1;
+
+                if (messageBucketsSent == 1000) {
+                    try {
+                        sleep(40);
+                    } catch (InterruptedException ignored) {
+
+                    }
+                    messageBucketsSent = 0;
+                }
             }
 
             if (concatenatedMessage.length() > 0) {

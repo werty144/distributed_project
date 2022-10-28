@@ -12,7 +12,7 @@ public class Server {
     private Receiver receiver;
     private Sender sender;
     private List<Host> hosts;
-    private final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
+    public final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
 
     public Server(Host host, List<Host> hosts) {
         this.host = host;
@@ -30,9 +30,9 @@ public class Server {
         return host;
     }
 
-    public List<String> getLogs() {
-        return Logs;
-    }
+//    public List<String> getLogs() {
+//        return Logs;
+//    }
 
     public void start() {
         receiver.start();
