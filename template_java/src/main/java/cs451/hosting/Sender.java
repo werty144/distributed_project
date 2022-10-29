@@ -52,9 +52,9 @@ public class Sender extends Thread {
                 concatenatedMessage.append(messages.remove()).append("&");
                 messagesConcatenated += 1;
 
-                if (messageBucketsSent == 1000) {
+                if (messageBucketsSent == 100) {
                     try {
-                        sleep(40);
+                        sleep(10);
                     } catch (InterruptedException ignored) {
 
                     }
