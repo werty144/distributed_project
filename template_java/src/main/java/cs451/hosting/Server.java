@@ -11,7 +11,8 @@ public class Server {
     private DatagramSocket UDPSocket;
     private Receiver receiver;
     private Sender sender;
-    private List<Host> hosts;
+    private FailureDetector failureDetector;
+    public List<Host> hosts;
     public final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
 
     public Server(Host host, List<Host> hosts) {
@@ -24,29 +25,32 @@ public class Server {
         }
         receiver = new Receiver(UDPSocket, this);
         sender = new Sender(UDPSocket, this);
+        failureDetector = new FailureDetector(this);
     }
 
     public Host getHost() {
         return host;
     }
 
-//    public List<String> getLogs() {
-//        return Logs;
-//    }
-
     public void start() {
         receiver.start();
         sender.start();
+        failureDetector.start();
     }
 
     public void stop() {
         receiver.interrupt();
         sender.interrupt();
+        failureDetector.interrupt();
     }
 
     public void sendMessagePL(Message message) {
         Logs.add("b " + message.getContent());
         sender.sendMessagePL(message);
+    }
+
+    public void sendMessageFLL(Message message) {
+        sender.sendMessageFLL(message);
     }
 
     public void receiveMessageFLL(String ip, int port, String message) {
@@ -73,5 +77,14 @@ public class Server {
         Optional<Host> host = hosts.stream().filter(h -> (h.getIp().equals(ip)) && (h.getPort() == port)).findAny();
         assert host.isPresent();
         return host.get();
+    }
+
+    void suspect(Integer hostID) {
+        System.out.println("Suspecting " + hostID + "\n");
+    }
+
+    void receivePing(String ip, int port) {
+        Host host = getHost(ip, port);
+        failureDetector.receivePing(host);
     }
 }

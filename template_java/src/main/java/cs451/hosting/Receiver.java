@@ -43,6 +43,11 @@ public class Receiver extends Thread {
             return;
         }
 
+        if (content.equals("ping")) {
+            server.receivePing(ip, packet.getPort());
+            return;
+        }
+
         for (String individualMessage : content.split("&")) {
             server.receiveMessageFLL(ip, packet.getPort(), individualMessage);
             receiveSL(ip, packet.getPort(), individualMessage);

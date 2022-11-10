@@ -83,7 +83,7 @@ public class Main {
         startSever();
 
         System.out.println("Broadcasting and delivering messages...\n");
-        doJob();
+        runFIFO();
 
         // After a process finishes broadcasting,
         // it waits forever for the delivery of messages.
@@ -100,7 +100,7 @@ public class Main {
         server.start();
     }
 
-    static void doJob() {
+    static void runFIFO() {
         File file = new File(parser.config());
         Scanner sc;
         try {
@@ -111,16 +111,6 @@ public class Main {
         }
         String[] args = sc.nextLine().split(" ");
         int m = Integer.parseInt(args[0]);
-        int i = Integer.parseInt(args[1]);
         sc.close();
-
-        if (server.getHost().getId() != i) {
-            Host receiver = parser.hosts().stream().filter(p -> p.getId() == i).findAny().orElse(null);
-            assert receiver != null;
-            for (int id = 1; id < m + 1; id++) {
-                Message message = new Message(Integer.toString(id), server.getHost(), receiver);
-                server.sendMessagePL(message);
-            }
-        }
     }
 }
