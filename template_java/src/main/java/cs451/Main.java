@@ -1,5 +1,6 @@
 package cs451;
 
+import cs451.hosting.BEBMessage;
 import cs451.hosting.Host;
 import cs451.hosting.Server;
 import cs451.parsing.Parser;
@@ -7,9 +8,7 @@ import cs451.parsing.Parser;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class Main {
     static Parser parser;
@@ -112,5 +111,9 @@ public class Main {
         String[] args = sc.nextLine().split(" ");
         int m = Integer.parseInt(args[0]);
         sc.close();
+
+        if (server.getHost().getId() == 1) {
+            server.bestEffortBroadcast(new BEBMessage(server.getHost().getId(), "Huy"));
+        }
     }
 }

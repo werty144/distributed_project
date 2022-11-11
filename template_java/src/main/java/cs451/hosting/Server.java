@@ -11,7 +11,6 @@ public class Server {
     private DatagramSocket UDPSocket;
     private Receiver receiver;
     private Sender sender;
-    private FailureDetector failureDetector;
     public List<Host> hosts;
     public final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
 
@@ -25,7 +24,6 @@ public class Server {
         }
         receiver = new Receiver(UDPSocket, this);
         sender = new Sender(UDPSocket, this);
-        failureDetector = new FailureDetector(this);
     }
 
     public Host getHost() {
@@ -35,13 +33,11 @@ public class Server {
     public void start() {
         receiver.start();
         sender.start();
-        failureDetector.start();
     }
 
     public void stop() {
         receiver.interrupt();
         sender.interrupt();
-        failureDetector.interrupt();
     }
 
     public void sendMessagePL(Message message) {
@@ -83,8 +79,7 @@ public class Server {
         System.out.println("Suspecting " + hostID + "\n");
     }
 
-    void receivePing(String ip, int port) {
-        Host host = getHost(ip, port);
-        failureDetector.receivePing(host);
+    public void bestEffortBroadcast(BEBMessage message) {
+        sender.bestEffortBroadCast(message);
     }
 }

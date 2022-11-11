@@ -118,4 +118,11 @@ public class Sender extends Thread {
             );
         }
     }
+
+    public void bestEffortBroadCast(BEBMessage message) {
+        String content = message.SenderID.toString() + ';' + message.content;
+        for (Host host : server.hosts) {
+            sendMessageSL(new Message(content, server.getHost(), host));
+        }
+    }
 }
