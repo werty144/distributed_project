@@ -125,4 +125,8 @@ public class Sender extends Thread {
             sendMessageSL(new Message(content, server.getHost(), host));
         }
     }
+
+    public void uniformReliableBroadcast(String content) {
+        bestEffortBroadCast(new BEBMessage(server.getHost().getId(), content));
+    }
 }

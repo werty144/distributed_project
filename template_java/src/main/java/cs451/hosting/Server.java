@@ -13,6 +13,7 @@ public class Server {
     private Sender sender;
     public List<Host> hosts;
     public final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
+    public final List<FIFOMessage> deliveredFIFO = Collections.synchronizedList(new ArrayList<>());
 
     public Server(Host host, List<Host> hosts) {
         this.host = host;
@@ -41,7 +42,6 @@ public class Server {
     }
 
     public void sendMessagePL(Message message) {
-        Logs.add("b " + message.getContent());
         sender.sendMessagePL(message);
     }
 
@@ -66,7 +66,6 @@ public class Server {
 
     public void receiveMessagePL(String ip, int port, String content) {
         int senderID = getHost(ip,  port).getId();
-        Logs.add("d " + senderID + " " + content);
     }
 
     Host getHost(String ip, int port) {
@@ -81,5 +80,15 @@ public class Server {
 
     public void bestEffortBroadcast(BEBMessage message) {
         sender.bestEffortBroadCast(message);
+    }
+
+    public void URBBroadcast(String content) {
+        BEBMessage message = new BEBMessage(host.getId(), content);
+        Logs.add("b " + message.content);
+        bestEffortBroadcast(message);
+    }
+
+    public void URBDeliver(BEBMessage message) {
+        deliveredFIFO.add(new FIFOMessage(message.SenderID, message.content, Integer.parseInt(message.content)));
     }
 }

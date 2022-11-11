@@ -1,14 +1,13 @@
 package cs451;
 
-import cs451.hosting.BEBMessage;
-import cs451.hosting.Host;
-import cs451.hosting.Server;
+import cs451.hosting.*;
 import cs451.parsing.Parser;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Main {
     static Parser parser;
@@ -31,6 +30,11 @@ public class Main {
             synchronized (server.Logs) {
                 for (String log : server.Logs) {
                     writer.write(log + '\n');
+                }
+            }
+            synchronized (server.deliveredFIFO) {
+                for (FIFOMessage message : server.deliveredFIFO.stream().sorted(new FIFOMessageComparator()).collect(Collectors.toList())) {
+                    writer.write("d " + message.senderID + " " + message.content + "\n");
                 }
             }
             writer.close();
@@ -112,8 +116,8 @@ public class Main {
         int m = Integer.parseInt(args[0]);
         sc.close();
 
-        if (server.getHost().getId() == 1) {
-            server.bestEffortBroadcast(new BEBMessage(server.getHost().getId(), "Huy"));
+        for (int i = 1; i < m + 1; i++) {
+            server.URBBroadcast(Integer.toString(i));
         }
     }
 }

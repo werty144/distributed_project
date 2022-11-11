@@ -13,9 +13,9 @@ public class Receiver extends Thread {
     private DatagramPacket packet;
     private Set<String> PLMessages = new HashSet<>();
     private Server server;
-    private Set<BEBMessage> BEBdelivered = new HashSet<>();
-    private Set<BEBMessage> BEBPending = new HashSet<>();
-    private Map<BEBMessage, Set<Integer>> BEBack = new HashMap<>();
+    private Set<BEBMessage> URBdelivered = new HashSet<>();
+    private Set<BEBMessage> URBPending = new HashSet<>();
+    private Map<BEBMessage, Set<Integer>> URBack = new HashMap<>();
     public Receiver(DatagramSocket UDPSocket, Server server) {
         this.UDPSocket = UDPSocket;
         this.server = server;
@@ -50,7 +50,7 @@ public class Receiver extends Thread {
 
         for (String individualMessage : content.split("&")) {
             server.receiveMessageFLL(ip, packet.getPort(), individualMessage);
-            deliverBEB(ip, packet.getPort(), individualMessage);
+            receiveBEB(ip, packet.getPort(), individualMessage);
         }
     }
 
@@ -66,21 +66,32 @@ public class Receiver extends Thread {
         }
     }
 
-    private void deliverBEB(String ip, Integer port, String content) {
+    private void receiveBEB(String ip, Integer port, String content) {
         String[] data = content.split(";");
         Integer originalSender = Integer.parseInt(data[0]);
         String payload = data[1];
         BEBMessage message = new BEBMessage(originalSender, payload);
 
-        if (!BEBack.containsKey(message)) {
-            BEBack.put(message, new HashSet<>());
+        if (!URBack.containsKey(message)) {
+            URBack.put(message, new HashSet<>());
         }
         Integer senderID = server.getHost(ip, port).getId();
-        BEBack.get(message).add(senderID);
+        URBack.get(message).add(senderID);
+        tryDeliverURB(message);
 
-        if (!BEBPending.contains(message)) {
-            System.out.println("Received " + message.content + " from " + senderID + ". Originally from " + message.SenderID);
-            BEBPending.add(message);
+        if (!URBPending.contains(message)) {
+            URBPending.add(message);
+            server.bestEffortBroadcast(message);
+        }
+    }
+
+    private void tryDeliverURB(BEBMessage message) {
+        if (URBdelivered.contains(message)) return;
+
+        if (URBack.get(message).size() > server.hosts.size() / 2) {
+            URBdelivered.add(message);
+            System.out.println("URB Delivered " + message.content + " from " + message.SenderID);
+            server.URBDeliver(message);
         }
     }
 }
