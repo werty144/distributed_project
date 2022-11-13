@@ -32,11 +32,6 @@ public class Main {
                     writer.write(log + '\n');
                 }
             }
-            synchronized (server.deliveredFIFO) {
-                for (FIFOMessage message : server.deliveredFIFO.stream().sorted(new FIFOMessageComparator()).collect(Collectors.toList())) {
-                    writer.write("d " + message.senderID + " " + message.content + "\n");
-                }
-            }
             writer.close();
         } catch (Exception e) {
             e.printStackTrace();
@@ -117,7 +112,7 @@ public class Main {
         sc.close();
 
         for (int i = 1; i < m + 1; i++) {
-            server.URBBroadcast(Integer.toString(i));
+            server.FIFOBroadcast(Integer.toString(i));
         }
     }
 }

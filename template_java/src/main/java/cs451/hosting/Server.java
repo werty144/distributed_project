@@ -13,7 +13,6 @@ public class Server {
     private Sender sender;
     public List<Host> hosts;
     public final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
-    public final List<FIFOMessage> deliveredFIFO = Collections.synchronizedList(new ArrayList<>());
 
     public Server(Host host, List<Host> hosts) {
         this.host = host;
@@ -73,22 +72,16 @@ public class Server {
         assert host.isPresent();
         return host.get();
     }
-
-    void suspect(Integer hostID) {
-        System.out.println("Suspecting " + hostID + "\n");
-    }
-
     public void bestEffortBroadcast(BEBMessage message) {
         sender.bestEffortBroadCast(message);
     }
 
-    public void URBBroadcast(String content) {
-        BEBMessage message = new BEBMessage(host.getId(), content);
-        Logs.add("b " + message.content);
-        bestEffortBroadcast(message);
+    public void FIFOBroadcast(String content) {
+        Logs.add("b " + content);
+        sender.FIFOBroadcast(content);
     }
 
-    public void URBDeliver(BEBMessage message) {
-        deliveredFIFO.add(new FIFOMessage(message.SenderID, message.content, Integer.parseInt(message.content)));
+    public void deliverFIFO(FIFOMessage message) {
+        Logs.add("d " + message.senderID + " " + message.content);
     }
 }

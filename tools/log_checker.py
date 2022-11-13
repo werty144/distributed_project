@@ -43,9 +43,13 @@ def check_no_creation(proc_messages, total_number_messages):
 
 def check_uniform_agreement(proc_messages):
 	for proc, messages in proc_messages.items():
-		if not all(not message.startswith("d") or all((message in proc_messages[proc]) for proc in proc_messages.keys()) for message in messages):
-			print(f"Violated agreement on process {proc}")
-			return False
+		for message in messages:
+			if not message.startswith("d"):
+				continue
+			for prc, msgs in proc_messages.items():
+				if message not in msgs:
+					print(f"Violated agreement. Porcess {proc} has delivered message {message} but process {prc} did not.")
+					return False
 	return True
 
 
@@ -78,6 +82,13 @@ def check_no_bullshit(proc_messages, n_processes, n_messages):
 				print(f"Bullshit in {proc}")
 
 
+def count_total_delivered(proc_messages):
+	total = 0
+	for proc, messages in proc_messages.items():
+		total += len(list(filter(lambda m: m.startswith("d"), messages)))
+	print(f"Total messages delivered: {total}" )
+
+
 def main():
 	
 
@@ -97,6 +108,8 @@ def main():
 	check_uniform_agreement(proc_messages)
 	check_fifo(proc_messages)
 	check_no_bullshit(proc_messages, n_processes, n_messages)
+
+	count_total_delivered(proc_messages)
 
 
 if __name__ == '__main__':

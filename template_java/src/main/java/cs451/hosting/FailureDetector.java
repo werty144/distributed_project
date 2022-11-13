@@ -26,7 +26,6 @@ public class FailureDetector extends Thread {
                 if (currentTime.getTime() - lastSeen.get(id).getTime() > 1000) {
                     if (currentAlive.contains(id)) {
                         currentAlive.remove(id);
-                        server.suspect(id);
                     }
                 }
             }

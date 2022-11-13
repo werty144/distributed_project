@@ -8,6 +8,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
 
+import static java.lang.Math.max;
+
 public class Sender extends Thread {
     private DatagramSocket UDPSocket;
     private Server server;
@@ -127,6 +129,19 @@ public class Sender extends Thread {
     }
 
     public void uniformReliableBroadcast(String content) {
+        Integer n_hosts = server.hosts.size();
+        int maxMessagesFlyingAtATime = max(20_000 / (n_hosts * n_hosts * n_hosts), 8);
+        while (SLMessages.size() > maxMessagesFlyingAtATime) {
+            try {
+                sleep(10);
+            } catch (InterruptedException ignored) {
+
+            }
+        }
         bestEffortBroadCast(new BEBMessage(server.getHost().getId(), content));
+    }
+
+    public void FIFOBroadcast(String content) {
+        uniformReliableBroadcast(content);
     }
 }
