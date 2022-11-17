@@ -111,8 +111,6 @@ public class Main {
         int m = Integer.parseInt(args[0]);
         sc.close();
 
-        for (int i = 1; i < m + 1; i++) {
-            server.FIFOBroadcast(Integer.toString(i));
-        }
+        server.FIFOBroadcast(m);
     }
 }

@@ -76,9 +76,15 @@ public class Server {
         sender.bestEffortBroadCast(message);
     }
 
-    public void FIFOBroadcast(String content) {
-        Logs.add("b " + content);
-        sender.FIFOBroadcast(content);
+    public void FIFOBroadcast(Integer m) {
+        sender.updateQueues(m);
+    }
+
+    public void FIFOBroadcasted(String content) {
+        String log = "b " + content;
+        if (!Logs.contains(log)) {
+            Logs.add(log);
+        }
     }
 
     public void deliverFIFO(FIFOMessage message) {

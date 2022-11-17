@@ -10,26 +10,24 @@ import java.util.*;
 
 import static java.lang.Math.max;
 
+
 public class Sender extends Thread {
     private DatagramSocket UDPSocket;
     private Server server;
-    private final List<Message> SLMessages = Collections.synchronizedList(new ArrayList<>());
-    private final Map<Integer, LinkedList<String>> receiversToMessages = new HashMap<>();
+    private final Map<Integer, List<String>> receiversToMessages = new HashMap<>();
     private final Map<Integer, Host> idsToHosts = new HashMap<>();
+    private final Map<Integer, Integer> lastMessageURB = new HashMap<>();
+
     public Sender(DatagramSocket UDPSocket, Server server) {
         this.UDPSocket = UDPSocket;
         this.server = server;
-    }
-
-    private void sortMessages() {
-        synchronized (SLMessages) {
-            for (Message message : SLMessages) {
-                if (!receiversToMessages.containsKey(message.getReceiver().getId())) {
-                    receiversToMessages.put(message.getReceiver().getId(), new LinkedList<String>());
-                    idsToHosts.put(message.getReceiver().getId(), message.getReceiver());
-                }
-                receiversToMessages.get(message.getReceiver().getId()).add(message.getContent());
-            }
+        for (Host host : server.hosts) {
+            receiversToMessages.put(
+                    host.getId(),
+                    Collections.synchronizedList(new ArrayList<>())
+            );
+            idsToHosts.put(host.getId(), host);
+            lastMessageURB.put(host.getId(), 0);
         }
     }
 
@@ -37,30 +35,32 @@ public class Sender extends Thread {
         for (Integer id : receiversToMessages.keySet()) {
             int messagesConcatenated = 0;
             StringBuilder concatenatedMessage = new StringBuilder();
-            LinkedList<String> messages = receiversToMessages.get(id);
-            int messageBucketsSent = 0;
-            while (!messages.isEmpty()) {
-                if (messagesConcatenated == maxConcatNumber) {
-                    Message message = new Message(
-                            concatenatedMessage.toString(),
-                            server.getHost(),
-                            idsToHosts.get(id)
-                    );
-                    sendMessageFLL(message);
-                    messageBucketsSent += 1;
-                    messagesConcatenated = 0;
-                    concatenatedMessage.setLength(0);
-                }
-                concatenatedMessage.append(messages.remove()).append("&");
-                messagesConcatenated += 1;
-
-                if (messageBucketsSent == 100) {
-                    try {
-                        sleep(10);
-                    } catch (InterruptedException ignored) {
-
+            List<String> messages = receiversToMessages.get(id);
+            synchronized (messages) {
+                int messageBucketsSent = 0;
+                for (String content : messages) {
+                    if (messagesConcatenated == maxConcatNumber) {
+                        Message message = new Message(
+                                concatenatedMessage.toString(),
+                                server.getHost(),
+                                idsToHosts.get(id)
+                        );
+                        sendMessageFLL(message);
+                        messageBucketsSent += 1;
+                        messagesConcatenated = 0;
+                        concatenatedMessage.setLength(0);
                     }
-                    messageBucketsSent = 0;
+                    concatenatedMessage.append(content).append("&");
+                    messagesConcatenated += 1;
+
+                    if (messageBucketsSent == 100) {
+                        try {
+                            sleep(10);
+                        } catch (InterruptedException ignored) {
+
+                        }
+                        messageBucketsSent = 0;
+                    }
                 }
             }
 
@@ -77,7 +77,11 @@ public class Sender extends Thread {
 
     public void run() {
         while (true) {
-            sortMessages();
+            try {
+                sleep(10);
+            } catch (InterruptedException ignored) {
+
+            }
             sendConcatenatedMessagesFLL(8);
         }
     }
@@ -105,7 +109,10 @@ public class Sender extends Thread {
     }
 
     public void sendMessageSL(Message message) {
-        SLMessages.add(message);
+        List<String> messages = receiversToMessages.get(message.getReceiver().getId());
+        synchronized (messages) {
+            messages.add(message.getContent());
+        }
     }
 
     public void sendMessagePL(Message message) {
@@ -113,11 +120,9 @@ public class Sender extends Thread {
     }
 
     public void acknowledged(Host receiver, String content) {
-        synchronized (SLMessages) {
-            SLMessages.removeIf(m ->
-                    (m.getReceiver().getId() == receiver.getId()) &&
-                            m.getContent().equals(content)
-            );
+        List<String> messages = receiversToMessages.get(receiver.getId());
+        synchronized (messages) {
+            messages.removeIf(m -> m.equals(content));
         }
     }
 
@@ -129,16 +134,41 @@ public class Sender extends Thread {
     }
 
     public void uniformReliableBroadcast(String content) {
+//        Integer n_hosts = server.hosts.size();
+//        int maxMessagesFlyingAtATime = max(20_000 / (n_hosts * n_hosts), 8);
+//        while (SLMessages.size() > maxMessagesFlyingAtATime) {
+//            try {
+//                sleep(10);
+//            } catch (InterruptedException ignored) {
+//
+//            }
+//        }
+        bestEffortBroadCast(new BEBMessage(server.getHost().getId(), content));
+    }
+
+    public void updateQueues(Integer m) {
         Integer n_hosts = server.hosts.size();
-        int maxMessagesFlyingAtATime = max(20_000 / (n_hosts * n_hosts * n_hosts), 8);
-        while (SLMessages.size() > maxMessagesFlyingAtATime) {
+        int MAX_MESSAGES_IN_QUEUE = max(20_000 / (n_hosts * n_hosts * n_hosts), 8);
+        while (true) {
             try {
                 sleep(10);
-            } catch (InterruptedException ignored) {
+            } catch (InterruptedException ignored) {}
 
+            for (Host host : server.hosts) {
+                List<String> messages = receiversToMessages.get(host.getId());
+                synchronized (messages) {
+                    if (messages.size() < MAX_MESSAGES_IN_QUEUE) {
+                        Integer cur_value = lastMessageURB.get(host.getId());
+                        if (cur_value >= m) continue;
+                        String new_message = Integer.toString(cur_value + 1);
+                        String content = Integer.toString(server.getHost().getId()) + ';' + new_message;
+                        messages.add(content);
+                        lastMessageURB.put(host.getId(), cur_value + 1);
+                        server.FIFOBroadcasted(new_message);
+                    }
+                }
             }
         }
-        bestEffortBroadCast(new BEBMessage(server.getHost().getId(), content));
     }
 
     public void FIFOBroadcast(String content) {

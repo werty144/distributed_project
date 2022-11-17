@@ -74,12 +74,15 @@ def check_no_bullshit(proc_messages, n_processes, n_messages):
 				parts = message.split(" ")
 				if not (1 <= int(parts[1]) <= n_processes) or not (1 <= int(parts[2]) <= n_messages):
 					print(f"Bullshit in {proc}")
+					return False
 			elif message.startswith("b"):
 				parts = message.split(" ")
 				if not (1 <= int(parts[1]) <= n_messages):
 					print(f"Bullshit in {proc}")
+					return False
 			else:
 				print(f"Bullshit in {proc}")
+				return False
 
 
 def count_total_delivered(proc_messages):
@@ -103,13 +106,13 @@ def main():
 	proc_messages = get_messages()
 
 	check_errors()
+	count_total_delivered(proc_messages)
+	check_no_bullshit(proc_messages, n_processes, n_messages)
 	check_no_creation(proc_messages, n_messages)
 	check_no_duplication(proc_messages)
 	check_uniform_agreement(proc_messages)
 	check_fifo(proc_messages)
-	check_no_bullshit(proc_messages, n_processes, n_messages)
 
-	count_total_delivered(proc_messages)
 
 
 if __name__ == '__main__':
