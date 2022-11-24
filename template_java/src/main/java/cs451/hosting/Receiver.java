@@ -1,6 +1,8 @@
 package cs451.hosting;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -11,16 +13,36 @@ public class Receiver extends Thread {
     private DatagramPacket packet;
     private Set<String> PLMessages = new HashSet<>();
     private Server server;
-    private Set<BEBMessage> URBDelivered = new HashSet<>();
-    private Set<BEBMessage> URBPending = new HashSet<>();
-    private Map<BEBMessage, Set<Integer>> URBack = new HashMap<>();
+    private Set<String> URBDelivered = new HashSet<>();
+    private Set<String> URBPending = new HashSet<>();
+    private Map<String, BitSet> URBack = new HashMap<>();
     private Map<Integer, Integer> FIFOLastDelivered = new HashMap<>();
-    private List<FIFOMessage> FIFOPending = new ArrayList<>();
+    private Map<Integer, List<Integer>> FIFOPending = new HashMap<>();
+    private Map<InetAddress, String> InetAddressToIP = new HashMap<>();
     public Receiver(DatagramSocket UDPSocket, Server server) {
         this.UDPSocket = UDPSocket;
         this.server = server;
         buf = new byte[256];
         packet = new DatagramPacket(buf, buf.length);
+        for (Host host : server.hosts) {
+            FIFOPending.put(host.getId(), new ArrayList<>());
+            try {
+                InetAddress address = InetAddress.getByName(host.getIp());
+                InetAddressToIP.put(address, host.getIp());
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+                return;
+            }
+
+        }
+    }
+
+    public void log_stats() {
+        System.out.println("PLMessages: " + PLMessages.size());
+        System.out.println("URBDelivered: " + URBDelivered.size());
+        System.out.println("URBPending: " + URBPending.size());
+        System.out.println("URBAck keys: " + URBack.keySet().size());
+        System.out.println("FIFOPending: " + FIFOPending.size());
     }
 
     public void run() {
@@ -38,7 +60,7 @@ public class Receiver extends Thread {
         }
 
         String content = new String(packet.getData(), 0, packet.getLength());
-        String ip = packet.getAddress().toString();
+        String ip = InetAddressToIP.get(packet.getAddress());
         if (ip.startsWith("/")) {
             ip = ip.substring(1);
         }
@@ -54,10 +76,6 @@ public class Receiver extends Thread {
         }
     }
 
-    private void receiveSL(String ip, Integer port, String content) {
-        receivePL(ip, port, content);
-    }
-
     private void receivePL(String ip, Integer port, String content) {
         String uniqueID = ip + '$' + port + '$' + content;
         if (!PLMessages.contains(uniqueID)) {
@@ -67,53 +85,64 @@ public class Receiver extends Thread {
     }
 
     private void receiveBEB(String ip, Integer port, String content) {
-        String[] data = content.split(";");
-        Integer originalSender = Integer.parseInt(data[0]);
-        String payload = data[1];
-        BEBMessage message = new BEBMessage(originalSender, payload);
+        if (URBDelivered.contains(content)) return;
 
-        if (!URBack.containsKey(message)) {
-            URBack.put(message, new HashSet<>());
+        if (!URBack.containsKey(content)) {
+            URBack.put(content, new BitSet(server.hosts.size()));
         }
-        Integer senderID = server.getHost(ip, port).getId();
-        URBack.get(message).add(senderID);
-        receiveURB(message);
+        int senderID = server.getHost(ip, port).getId();
+        URBack.get(content).set(senderID - 1, true);
+        receiveURB(content);
 
-        if (!URBPending.contains(message)) {
-            URBPending.add(message);
-            server.bestEffortBroadcast(message);
+        if (!URBPending.contains(content)) {
+            URBPending.add(content);
+            server.bestEffortBroadcast(content);
         }
     }
 
-    private void receiveURB(BEBMessage message) {
+    private void receiveURB(String message) {
         if (URBDelivered.contains(message)) return;
 
-        if (URBack.get(message).size() > server.hosts.size() / 2) {
+        if (numberOfOnes(URBack.get(message)) > server.hosts.size() / 2) {
             deliverURB(message);
         }
     }
 
-    private void deliverURB(BEBMessage message) {
-        URBDelivered.add(message);
-        receiveFIFO(new FIFOMessage(message.SenderID, message.content, Integer.parseInt(message.content)));
+    private int numberOfOnes(BitSet bs) {
+        int counter = 0;
+        for (int i = 0; i < bs.size(); i++) {
+            if (bs.get(i)) {
+                counter += 1;
+            }
+        }
+        return counter;
     }
 
-    private void receiveFIFO(FIFOMessage message) {
-        FIFOPending.add(message);
+    private void deliverURB(String message) {
+        URBDelivered.add(message);
+        URBack.remove(message);
+        URBPending.remove(message);
+        receiveFIFO(message);
+    }
 
-        if (!FIFOLastDelivered.containsKey(message.senderID)) {
-            FIFOLastDelivered.put(message.senderID, 0);
+    private void receiveFIFO(String message) {
+        String[] data = message.split(";");
+        Integer senderID = Integer.parseInt(data[0]);
+        int payload = Integer.parseInt(data[1]);
+        FIFOPending.get(senderID).add(payload);
+
+        if (!FIFOLastDelivered.containsKey(senderID)) {
+            FIFOLastDelivered.put(senderID, 0);
         }
 
-        if (FIFOLastDelivered.get(message.senderID) == message.timestamp - 1) {
-            List<FIFOMessage> messagesFromSender = FIFOPending.stream().
-                    filter(it -> it.senderID.equals(message.senderID)).
-                    sorted(new FIFOMessageComparator()).
+        if (FIFOLastDelivered.get(senderID) == payload - 1) {
+            List<Integer> messagesFromSender = FIFOPending.get(senderID).stream().
+                    sorted().
                     collect(Collectors.toList());
-            Integer lastDeliveredTimeStamp = FIFOLastDelivered.get(message.senderID);
-            for (FIFOMessage msg : messagesFromSender) {
-                if (msg.timestamp == lastDeliveredTimeStamp + 1) {
-                    deliverFIFO(msg);
+            Integer lastDeliveredTimeStamp = FIFOLastDelivered.get(senderID);
+            for (Integer msg : messagesFromSender) {
+                if (msg == lastDeliveredTimeStamp + 1) {
+                    deliverFIFO(senderID, msg);
                     lastDeliveredTimeStamp++;
                 } else {
                     break;
@@ -122,10 +151,10 @@ public class Receiver extends Thread {
         }
     }
 
-    private void deliverFIFO(FIFOMessage message) {
-        FIFOPending.remove(message);
-        FIFOLastDelivered.put(message.senderID, message.timestamp);
-        server.deliverFIFO(message);
+    private void deliverFIFO(Integer senderID, Integer message) {
+        FIFOPending.get(senderID).remove(message);
+        FIFOLastDelivered.put(senderID, message);
+        server.deliverFIFO(senderID, message);
     }
 }
 

@@ -6,6 +6,29 @@ import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.*;
 
+
+//class Pair<T1, T2> {
+//    T1 first;
+//    T2 second;
+//
+//    public Pair(T1 fst, T2 snd) {
+//        first = fst;
+//        second = snd;
+//    }
+//
+//    @Override
+//    public boolean equals(Object obj) {
+//        if (getClass() != obj.getClass()) return false;
+//        Pair<T1, T2> other = (Pair<T1, T2>) obj;
+//        return other.first.equals(first) && other.second.equals(second);
+//    }
+//
+//    @Override
+//    public int hashCode() {
+//        return (first.toString() + '$' + second.toString()).hashCode();
+//    }
+//}
+
 public class Server {
     private Host host;
     private DatagramSocket UDPSocket;
@@ -13,6 +36,7 @@ public class Server {
     private Sender sender;
     public List<Host> hosts;
     public final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
+
 
     public Server(Host host, List<Host> hosts) {
         this.host = host;
@@ -40,22 +64,12 @@ public class Server {
         sender.interrupt();
     }
 
-    public void sendMessagePL(Message message) {
-        sender.sendMessagePL(message);
-    }
-
-    public void sendMessageFLL(Message message) {
-        sender.sendMessageFLL(message);
-    }
-
     public void receiveMessageFLL(String ip, int port, String message) {
         acknowledge(ip, port, message);
     }
 
     void acknowledge(String ip, int port, String message) {
-        Host sender = getHost(ip, port);
-        Message ack = new Message("ack$" + message, this.host, sender);
-        this.sender.sendMessageFLL(ack);
+        this.sender.sendMessageFLL("ack$" + message, ip, port);
     }
 
     public void receiveAcknowledgement(String ip, int port, String message) {
@@ -68,16 +82,19 @@ public class Server {
     }
 
     Host getHost(String ip, int port) {
-        Optional<Host> host = hosts.stream().filter(h -> (h.getIp().equals(ip)) && (h.getPort() == port)).findAny();
-        assert host.isPresent();
-        return host.get();
+        for (Host host : hosts) {
+            if (host.getIp().equals(ip) && host.getPort() == port) {
+                return host;
+            }
+        }
+        return null;
     }
-    public void bestEffortBroadcast(BEBMessage message) {
+    public void bestEffortBroadcast(String message) {
         sender.bestEffortBroadCast(message);
     }
 
     public void FIFOBroadcast(Integer m) {
-        sender.updateQueues(m);
+        sender.putFIFOTotal(m);
     }
 
     public void FIFOBroadcasted(String content) {
@@ -87,7 +104,7 @@ public class Server {
         }
     }
 
-    public void deliverFIFO(FIFOMessage message) {
-        Logs.add("d " + message.senderID + " " + message.content);
+    public void deliverFIFO(Integer senderID, Integer message) {
+        Logs.add("d " + senderID + " " + message);
     }
 }

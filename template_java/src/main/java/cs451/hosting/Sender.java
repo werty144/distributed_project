@@ -17,10 +17,18 @@ public class Sender extends Thread {
     private final Map<Integer, List<String>> receiversToMessages = new HashMap<>();
     private final Map<Integer, Host> idsToHosts = new HashMap<>();
     private final Map<Integer, Integer> lastMessageURB = new HashMap<>();
+    private final Map<Integer, Integer> lastMessageBEB = new HashMap<>();
+    private final List<String> messagesToBEB = Collections.synchronizedList(new ArrayList<>());
+    int MAX_MESSAGES_IN_QUEUE;
+    int FIFOTotal = -1;
+
+    Map <String, InetAddress> inetAddress = new HashMap<>();
 
     public Sender(DatagramSocket UDPSocket, Server server) {
         this.UDPSocket = UDPSocket;
         this.server = server;
+        Integer n_hosts = server.hosts.size();
+        this.MAX_MESSAGES_IN_QUEUE = max(20_000 / (n_hosts * n_hosts * n_hosts), 8);
         for (Host host : server.hosts) {
             receiversToMessages.put(
                     host.getId(),
@@ -28,11 +36,24 @@ public class Sender extends Thread {
             );
             idsToHosts.put(host.getId(), host);
             lastMessageURB.put(host.getId(), 0);
+            lastMessageBEB.put(host.getId(), -1);
+
+            try {
+                inetAddress.put(host.getIp(), InetAddress.getByName(host.getIp()));
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+                return;
+            }
         }
+    }
+
+    public void putFIFOTotal(int m) {
+        FIFOTotal = m;
     }
 
     private void sendConcatenatedMessagesFLL(Integer maxConcatNumber) {
         for (Integer id : receiversToMessages.keySet()) {
+            Host receiver = idsToHosts.get(id);
             int messagesConcatenated = 0;
             StringBuilder concatenatedMessage = new StringBuilder();
             List<String> messages = receiversToMessages.get(id);
@@ -40,12 +61,7 @@ public class Sender extends Thread {
                 int messageBucketsSent = 0;
                 for (String content : messages) {
                     if (messagesConcatenated == maxConcatNumber) {
-                        Message message = new Message(
-                                concatenatedMessage.toString(),
-                                server.getHost(),
-                                idsToHosts.get(id)
-                        );
-                        sendMessageFLL(message);
+                        sendMessageFLL(concatenatedMessage.toString(), receiver.getIp(), receiver.getPort());
                         messageBucketsSent += 1;
                         messagesConcatenated = 0;
                         concatenatedMessage.setLength(0);
@@ -65,13 +81,15 @@ public class Sender extends Thread {
             }
 
             if (concatenatedMessage.length() > 0) {
-                Message message = new Message(
-                        concatenatedMessage.toString(),
-                        server.getHost(),
-                        idsToHosts.get(id)
-                );
-                sendMessageFLL(message);
+                sendMessageFLL(concatenatedMessage.toString(), receiver.getIp(), receiver.getPort());
             }
+        }
+    }
+
+    private void log_stats() {
+        int total_messages = 0;
+        for (Integer id : receiversToMessages.keySet()) {
+            total_messages += receiversToMessages.get(id).size();
         }
     }
 
@@ -82,24 +100,19 @@ public class Sender extends Thread {
             } catch (InterruptedException ignored) {
 
             }
+            updateQueues();
             sendConcatenatedMessagesFLL(8);
         }
     }
 
-    public void sendMessageFLL(Message message) {
-        byte[] buf = message.getContent().getBytes();
-        InetAddress address;
-        try {
-            address = InetAddress.getByName(message.getReceiver().getIp());
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-            return;
-        }
+    public void sendMessageFLL(String content, String ip, int port) {
+        byte[] buf = content.getBytes();
+        InetAddress address = inetAddress.get(ip);
         DatagramPacket packet = new DatagramPacket(
                 buf,
                 buf.length,
                 address,
-                message.getReceiver().getPort()
+                port
         );
         try {
             UDPSocket.send(packet);
@@ -119,6 +132,7 @@ public class Sender extends Thread {
         sendMessageSL(message);
     }
 
+
     public void acknowledged(Host receiver, String content) {
         List<String> messages = receiversToMessages.get(receiver.getId());
         synchronized (messages) {
@@ -126,52 +140,44 @@ public class Sender extends Thread {
         }
     }
 
-    public void bestEffortBroadCast(BEBMessage message) {
-        String content = message.SenderID.toString() + ';' + message.content;
-        for (Host host : server.hosts) {
-            sendMessageSL(new Message(content, server.getHost(), host));
+    public void bestEffortBroadCast(String message) {
+        synchronized (messagesToBEB) {
+            messagesToBEB.add(message);
         }
     }
 
-    public void uniformReliableBroadcast(String content) {
-//        Integer n_hosts = server.hosts.size();
-//        int maxMessagesFlyingAtATime = max(20_000 / (n_hosts * n_hosts), 8);
-//        while (SLMessages.size() > maxMessagesFlyingAtATime) {
-//            try {
-//                sleep(10);
-//            } catch (InterruptedException ignored) {
-//
-//            }
-//        }
-        bestEffortBroadCast(new BEBMessage(server.getHost().getId(), content));
-    }
+//    public void uniformReliableBroadcast(String content) {
+//        bestEffortBroadCast(new BEBMessage(server.getHost().getId(), content));
+//    }
 
-    public void updateQueues(Integer m) {
-        Integer n_hosts = server.hosts.size();
-        int MAX_MESSAGES_IN_QUEUE = max(20_000 / (n_hosts * n_hosts * n_hosts), 8);
-        while (true) {
-            try {
-                sleep(10);
-            } catch (InterruptedException ignored) {}
+    public void updateQueues() {
+        for (Host host : server.hosts) {
+            List<String> messages = receiversToMessages.get(host.getId());
+            synchronized (messages) {
 
-            for (Host host : server.hosts) {
-                List<String> messages = receiversToMessages.get(host.getId());
-                synchronized (messages) {
-                    if (messages.size() < MAX_MESSAGES_IN_QUEUE) {
-                        Integer cur_value = lastMessageURB.get(host.getId());
-                        if (cur_value >= m) continue;
-                        String new_message = Integer.toString(cur_value + 1);
-                        String content = Integer.toString(server.getHost().getId()) + ';' + new_message;
-                        messages.add(content);
-                        lastMessageURB.put(host.getId(), cur_value + 1);
-                        server.FIFOBroadcasted(new_message);
+                synchronized (messagesToBEB) {
+                    int nextBEBMessage = lastMessageBEB.get(host.getId()) + 1;
+                    while ((messages.size() < MAX_MESSAGES_IN_QUEUE) && (nextBEBMessage < messagesToBEB.size())) {
+                        messages.add(messagesToBEB.get(nextBEBMessage));
+                        nextBEBMessage += 1;
                     }
+                    lastMessageBEB.put(host.getId(), nextBEBMessage - 1);
                 }
+
+                int nextURBMessage = lastMessageURB.get(host.getId()) + 1;
+                while ((messages.size() < MAX_MESSAGES_IN_QUEUE) && (nextURBMessage <= FIFOTotal)) {
+                    String new_message = Integer.toString(nextURBMessage);
+                    String content = Integer.toString(server.getHost().getId()) + ';' + new_message;
+                    messages.add(content);
+                    server.FIFOBroadcasted(new_message);
+                    nextURBMessage += 1;
+                }
+                lastMessageURB.put(host.getId(), nextURBMessage - 1);
             }
         }
     }
 
-    public void FIFOBroadcast(String content) {
-        uniformReliableBroadcast(content);
-    }
+//    public void FIFOBroadcast(String content) {
+//        uniformReliableBroadcast(content);
+//    }
 }
