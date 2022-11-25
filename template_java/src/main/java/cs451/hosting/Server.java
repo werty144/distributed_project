@@ -6,6 +6,8 @@ import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.*;
 
+import static java.lang.Math.max;
+
 
 //class Pair<T1, T2> {
 //    T1 first;
@@ -35,7 +37,9 @@ public class Server {
     private Receiver receiver;
     private Sender sender;
     public List<Host> hosts;
-    public final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
+//    public final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
+    public int lastFIFOBroadcasted = 0;
+    public Map<Integer, Integer> lastFIFODelivered = new HashMap<>();
 
 
     public Server(Host host, List<Host> hosts) {
@@ -48,6 +52,10 @@ public class Server {
         }
         receiver = new Receiver(UDPSocket, this);
         sender = new Sender(UDPSocket, this);
+
+        for (Host host1 : hosts) {
+            lastFIFODelivered.put(host1.getId(), 0);
+        }
     }
 
     public Host getHost() {
@@ -97,14 +105,13 @@ public class Server {
         sender.putFIFOTotal(m);
     }
 
-    public void FIFOBroadcasted(String content) {
-        String log = "b " + content;
-        if (!Logs.contains(log)) {
-            Logs.add(log);
+    public void FIFOBroadcasted(Integer message) {
+        if (message > lastFIFOBroadcasted) {
+            lastFIFOBroadcasted = message;
         }
     }
 
     public void deliverFIFO(Integer senderID, Integer message) {
-        Logs.add("d " + senderID + " " + message);
+        lastFIFODelivered.computeIfPresent(senderID, (key, val) -> max(val, message));
     }
 }

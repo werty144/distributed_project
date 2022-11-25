@@ -33,7 +33,7 @@ public class Receiver extends Thread {
                 e.printStackTrace();
                 return;
             }
-
+            FIFOLastDelivered.put(host.getId(), 0);
         }
     }
 
@@ -85,25 +85,34 @@ public class Receiver extends Thread {
     }
 
     private void receiveBEB(String ip, Integer port, String content) {
-        if (URBDelivered.contains(content)) return;
+        if (URBDelivered.contains(content) || isFIFODelivered(content)) return;
+
+        int senderID = server.getHost(ip, port).getId();
+
+        if (senderID == server.getHost().getId()) {
+            if (server.hosts.size() == 1) {
+                deliverURB(content);
+            }
+            return;
+        }
 
         if (!URBack.containsKey(content)) {
             URBack.put(content, new BitSet(server.hosts.size()));
         }
-        int senderID = server.getHost(ip, port).getId();
         URBack.get(content).set(senderID - 1, true);
-        receiveURB(content);
 
         if (!URBPending.contains(content)) {
             URBPending.add(content);
             server.bestEffortBroadcast(content);
         }
+
+        receiveURB(content);
     }
 
     private void receiveURB(String message) {
-        if (URBDelivered.contains(message)) return;
+        if (URBDelivered.contains(message) || isFIFODelivered(message)) return;
 
-        if (numberOfOnes(URBack.get(message)) > server.hosts.size() / 2) {
+        if (numberOfOnes(URBack.get(message)) + 1 > server.hosts.size() / 2) {
             deliverURB(message);
         }
     }
@@ -131,10 +140,6 @@ public class Receiver extends Thread {
         int payload = Integer.parseInt(data[1]);
         FIFOPending.get(senderID).add(payload);
 
-        if (!FIFOLastDelivered.containsKey(senderID)) {
-            FIFOLastDelivered.put(senderID, 0);
-        }
-
         if (FIFOLastDelivered.get(senderID) == payload - 1) {
             List<Integer> messagesFromSender = FIFOPending.get(senderID).stream().
                     sorted().
@@ -142,6 +147,7 @@ public class Receiver extends Thread {
             Integer lastDeliveredTimeStamp = FIFOLastDelivered.get(senderID);
             for (Integer msg : messagesFromSender) {
                 if (msg == lastDeliveredTimeStamp + 1) {
+                    URBDelivered.remove(Integer.toString(senderID) + ";" + msg);
                     deliverFIFO(senderID, msg);
                     lastDeliveredTimeStamp++;
                 } else {
@@ -155,6 +161,13 @@ public class Receiver extends Thread {
         FIFOPending.get(senderID).remove(message);
         FIFOLastDelivered.put(senderID, message);
         server.deliverFIFO(senderID, message);
+    }
+
+    public boolean isFIFODelivered(String message) {
+        String[] data = message.split(";");
+        Integer senderID = Integer.parseInt(data[0]);
+        int payload = Integer.parseInt(data[1]);
+        return FIFOLastDelivered.get(senderID) >= payload;
     }
 }
 

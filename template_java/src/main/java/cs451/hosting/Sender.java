@@ -18,7 +18,7 @@ public class Sender extends Thread {
     private final Map<Integer, Host> idsToHosts = new HashMap<>();
     private final Map<Integer, Integer> lastMessageURB = new HashMap<>();
     private final Map<Integer, Integer> lastMessageBEB = new HashMap<>();
-    private final List<String> messagesToBEB = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> messagesToBEB = Collections.synchronizedList(new LinkedList<>());
     int MAX_MESSAGES_IN_QUEUE;
     int FIFOTotal = -1;
 
@@ -102,6 +102,24 @@ public class Sender extends Thread {
             }
             updateQueues();
             sendConcatenatedMessagesFLL(8);
+            cleanMessagesToBEB();
+        }
+    }
+
+    private void cleanMessagesToBEB() {
+        int curMin = Integer.MAX_VALUE;
+        for (Integer v : lastMessageBEB.values()) {
+            if (v < curMin) curMin = v;
+        }
+        int valuesToClean = curMin + 1;
+        synchronized (messagesToBEB) {
+            if (valuesToClean > 0) {
+                messagesToBEB.subList(0, valuesToClean).clear();
+            }
+        }
+
+        synchronized (lastMessageBEB) {
+            lastMessageBEB.replaceAll((k, v) -> v - valuesToClean);
         }
     }
 
@@ -146,10 +164,6 @@ public class Sender extends Thread {
         }
     }
 
-//    public void uniformReliableBroadcast(String content) {
-//        bestEffortBroadCast(new BEBMessage(server.getHost().getId(), content));
-//    }
-
     public void updateQueues() {
         for (Host host : server.hosts) {
             List<String> messages = receiversToMessages.get(host.getId());
@@ -169,7 +183,7 @@ public class Sender extends Thread {
                     String new_message = Integer.toString(nextURBMessage);
                     String content = Integer.toString(server.getHost().getId()) + ';' + new_message;
                     messages.add(content);
-                    server.FIFOBroadcasted(new_message);
+                    server.FIFOBroadcasted(nextURBMessage);
                     nextURBMessage += 1;
                 }
                 lastMessageURB.put(host.getId(), nextURBMessage - 1);

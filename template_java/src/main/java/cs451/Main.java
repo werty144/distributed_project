@@ -27,9 +27,12 @@ public class Main {
     private static void logServerOutput() {
         try {
             FileWriter writer = new FileWriter(parser.output());
-            synchronized (server.Logs) {
-                for (String log : server.Logs) {
-                    writer.write(log + '\n');
+            for (int i = 1; i < server.lastFIFOBroadcasted + 1; i++) {
+                writer.write("b " + i + "\n");
+            }
+            for (Host host : server.hosts) {
+                for (int i = 1; i < server.lastFIFODelivered.get(host.getId()) + 1; i++) {
+                    writer.write("d " + host.getId() + " " + i + "\n");
                 }
             }
             writer.close();
