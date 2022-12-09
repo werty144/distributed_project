@@ -37,9 +37,10 @@ public class Server {
     private Receiver receiver;
     private Sender sender;
     public List<Host> hosts;
-//    public final List<String> Logs = Collections.synchronizedList(new ArrayList<>());
-    public int lastFIFOBroadcasted = 0;
-    public Map<Integer, Integer> lastFIFODelivered = new HashMap<>();
+    public LatticeAcceptor latticeAcceptor;
+    public LatticeProposer latticeProposer;
+    public List<String> logs = new ArrayList<>();
+
 
 
     public Server(Host host, List<Host> hosts) {
@@ -53,9 +54,8 @@ public class Server {
         receiver = new Receiver(UDPSocket, this);
         sender = new Sender(UDPSocket, this);
 
-        for (Host host1 : hosts) {
-            lastFIFODelivered.put(host1.getId(), 0);
-        }
+        latticeAcceptor = new LatticeAcceptor(this);
+        latticeProposer = new LatticeProposer(this);
     }
 
     public Host getHost() {
@@ -85,6 +85,10 @@ public class Server {
         this.sender.acknowledged(sender, message);
     }
 
+    public void sendMessageFLL(String message, Host host) {
+        this.sender.sendMessageFLL(message, host.getIp(), host.getPort());
+    }
+
     public void receiveMessagePL(String ip, int port, String content) {
         int senderID = getHost(ip,  port).getId();
     }
@@ -101,17 +105,19 @@ public class Server {
         sender.bestEffortBroadCast(message);
     }
 
-    public void FIFOBroadcast(Integer m) {
-        sender.putFIFOTotal(m);
+    public void receiveLatticeACK(int proposal_number) {
+        latticeProposer.receive_ack(proposal_number);
     }
 
-    public void FIFOBroadcasted(Integer message) {
-        if (message > lastFIFOBroadcasted) {
-            lastFIFOBroadcasted = message;
-        }
+    public void receiveLatticeNACK(int proposal_number, Set<Integer> accepted_value) {
+        latticeProposer.receive_nack(proposal_number, accepted_value);
     }
 
-    public void deliverFIFO(Integer senderID, Integer message) {
-        lastFIFODelivered.computeIfPresent(senderID, (key, val) -> max(val, message));
+    public void receiveLatticeProposal(Set<Integer> proposed_value, int proposal_number, Host sender) {
+        latticeAcceptor.receive_proposal(proposed_value, proposal_number, sender);
+    }
+
+    public void latticeProposal(Set<Integer> proposed_value) {
+        latticeProposer.propose(proposed_value);
     }
 }

@@ -27,13 +27,8 @@ public class Main {
     private static void logServerOutput() {
         try {
             FileWriter writer = new FileWriter(parser.output());
-            for (int i = 1; i < server.lastFIFOBroadcasted + 1; i++) {
-                writer.write("b " + i + "\n");
-            }
-            for (Host host : server.hosts) {
-                for (int i = 1; i < server.lastFIFODelivered.get(host.getId()) + 1; i++) {
-                    writer.write("d " + host.getId() + " " + i + "\n");
-                }
+            for (String l : server.logs) {
+                writer.write(l + "\n");
             }
             writer.close();
         } catch (Exception e) {
@@ -84,7 +79,7 @@ public class Main {
         startSever();
 
         System.out.println("Broadcasting and delivering messages...\n");
-        runFIFO();
+        runLattice();
 
         // After a process finishes broadcasting,
         // it waits forever for the delivery of messages.
@@ -101,7 +96,7 @@ public class Main {
         server.start();
     }
 
-    static void runFIFO() {
+    static void runLattice() {
         File file = new File(parser.config());
         Scanner sc;
         try {
@@ -111,9 +106,18 @@ public class Main {
             return;
         }
         String[] args = sc.nextLine().split(" ");
-        int m = Integer.parseInt(args[0]);
-        sc.close();
-
-        server.FIFOBroadcast(m);
+        int p = Integer.parseInt(args[0]);
+        int vs = Integer.parseInt(args[1]);
+        int ds = Integer.parseInt(args[2]);
+        ArrayList<Set<Integer>> proposals = new ArrayList<>();
+        for (int i = 0; i < p; i++) {
+            Set<Integer> proposal = new HashSet<>();
+            String[] nums = sc.nextLine().split(" ");
+            for (String num : nums) {
+                proposal.add(Integer.parseInt(num));
+            }
+            proposals.add(proposal);
+        }
+        server.latticeProposal(proposals.get(0));
     }
 }

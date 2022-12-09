@@ -1,10 +1,12 @@
 package cs451.hosting;
+import cs451.parsing.MessageParser;
+import cs451.parsing.MyPair;
+
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 
 public class Receiver extends Thread {
@@ -13,11 +15,7 @@ public class Receiver extends Thread {
     private DatagramPacket packet;
     private Set<String> PLMessages = new HashSet<>();
     private Server server;
-    private Set<String> URBDelivered = new HashSet<>();
-    private Set<String> URBPending = new HashSet<>();
-    private Map<String, BitSet> URBack = new HashMap<>();
-    private Map<Integer, Integer> FIFOLastDelivered = new HashMap<>();
-    private Map<Integer, List<Integer>> FIFOPending = new HashMap<>();
+
     private Map<InetAddress, String> InetAddressToIP = new HashMap<>();
     public Receiver(DatagramSocket UDPSocket, Server server) {
         this.UDPSocket = UDPSocket;
@@ -25,7 +23,6 @@ public class Receiver extends Thread {
         buf = new byte[256];
         packet = new DatagramPacket(buf, buf.length);
         for (Host host : server.hosts) {
-            FIFOPending.put(host.getId(), new ArrayList<>());
             try {
                 InetAddress address = InetAddress.getByName(host.getIp());
                 InetAddressToIP.put(address, host.getIp());
@@ -33,16 +30,7 @@ public class Receiver extends Thread {
                 e.printStackTrace();
                 return;
             }
-            FIFOLastDelivered.put(host.getId(), 0);
         }
-    }
-
-    public void log_stats() {
-        System.out.println("PLMessages: " + PLMessages.size());
-        System.out.println("URBDelivered: " + URBDelivered.size());
-        System.out.println("URBPending: " + URBPending.size());
-        System.out.println("URBAck keys: " + URBack.keySet().size());
-        System.out.println("FIFOPending: " + FIFOPending.size());
     }
 
     public void run() {
@@ -85,89 +73,23 @@ public class Receiver extends Thread {
     }
 
     private void receiveBEB(String ip, Integer port, String content) {
-        if (URBDelivered.contains(content) || isFIFODelivered(content)) return;
 
         int senderID = server.getHost(ip, port).getId();
 
-        if (senderID == server.getHost().getId()) {
-            if (server.hosts.size() == 1) {
-                deliverURB(content);
-            }
-            return;
+        if (content.startsWith("ACK$")) {
+            int proposal_number = MessageParser.parseLatticeAck(content);
+            server.receiveLatticeACK(proposal_number);
         }
 
-        if (!URBack.containsKey(content)) {
-            URBack.put(content, new BitSet(server.hosts.size()));
-        }
-        URBack.get(content).set(senderID - 1, true);
-
-        if (!URBPending.contains(content)) {
-            URBPending.add(content);
-            server.bestEffortBroadcast(content);
+        if (content.startsWith("NACK$")) {
+            MyPair ans = MessageParser.parseLatticeNack(content);
+            server.receiveLatticeNACK(ans.proposal_number, ans.value);
         }
 
-        receiveURB(content);
-    }
-
-    private void receiveURB(String message) {
-        if (URBDelivered.contains(message) || isFIFODelivered(message)) return;
-
-        if (numberOfOnes(URBack.get(message)) + 1 > server.hosts.size() / 2) {
-            deliverURB(message);
+        if (content.startsWith("PROPOSAL$")) {
+            MyPair ans = MessageParser.parseLatticeProposal(content);
+            server.receiveLatticeProposal(ans.value, ans.proposal_number, server.getHost(ip, port));
         }
-    }
-
-    private int numberOfOnes(BitSet bs) {
-        int counter = 0;
-        for (int i = 0; i < bs.size(); i++) {
-            if (bs.get(i)) {
-                counter += 1;
-            }
-        }
-        return counter;
-    }
-
-    private void deliverURB(String message) {
-        URBDelivered.add(message);
-        URBack.remove(message);
-        URBPending.remove(message);
-        receiveFIFO(message);
-    }
-
-    private void receiveFIFO(String message) {
-        String[] data = message.split(";");
-        Integer senderID = Integer.parseInt(data[0]);
-        int payload = Integer.parseInt(data[1]);
-        FIFOPending.get(senderID).add(payload);
-
-        if (FIFOLastDelivered.get(senderID) == payload - 1) {
-            List<Integer> messagesFromSender = FIFOPending.get(senderID).stream().
-                    sorted().
-                    collect(Collectors.toList());
-            Integer lastDeliveredTimeStamp = FIFOLastDelivered.get(senderID);
-            for (Integer msg : messagesFromSender) {
-                if (msg == lastDeliveredTimeStamp + 1) {
-                    URBDelivered.remove(Integer.toString(senderID) + ";" + msg);
-                    deliverFIFO(senderID, msg);
-                    lastDeliveredTimeStamp++;
-                } else {
-                    break;
-                }
-            }
-        }
-    }
-
-    private void deliverFIFO(Integer senderID, Integer message) {
-        FIFOPending.get(senderID).remove(message);
-        FIFOLastDelivered.put(senderID, message);
-        server.deliverFIFO(senderID, message);
-    }
-
-    public boolean isFIFODelivered(String message) {
-        String[] data = message.split(";");
-        Integer senderID = Integer.parseInt(data[0]);
-        int payload = Integer.parseInt(data[1]);
-        return FIFOLastDelivered.get(senderID) >= payload;
     }
 }
 

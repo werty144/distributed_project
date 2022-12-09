@@ -16,11 +16,9 @@ public class Sender extends Thread {
     private Server server;
     private final Map<Integer, List<String>> receiversToMessages = new HashMap<>();
     private final Map<Integer, Host> idsToHosts = new HashMap<>();
-    private final Map<Integer, Integer> lastMessageURB = new HashMap<>();
     private final Map<Integer, Integer> lastMessageBEB = new HashMap<>();
     private final List<String> messagesToBEB = Collections.synchronizedList(new LinkedList<>());
     int MAX_MESSAGES_IN_QUEUE;
-    int FIFOTotal = -1;
 
     Map <String, InetAddress> inetAddress = new HashMap<>();
 
@@ -35,7 +33,6 @@ public class Sender extends Thread {
                     Collections.synchronizedList(new ArrayList<>())
             );
             idsToHosts.put(host.getId(), host);
-            lastMessageURB.put(host.getId(), 0);
             lastMessageBEB.put(host.getId(), -1);
 
             try {
@@ -45,10 +42,6 @@ public class Sender extends Thread {
                 return;
             }
         }
-    }
-
-    public void putFIFOTotal(int m) {
-        FIFOTotal = m;
     }
 
     private void sendConcatenatedMessagesFLL(Integer maxConcatNumber) {
@@ -177,21 +170,7 @@ public class Sender extends Thread {
                     }
                     lastMessageBEB.put(host.getId(), nextBEBMessage - 1);
                 }
-
-                int nextURBMessage = lastMessageURB.get(host.getId()) + 1;
-                while ((messages.size() < MAX_MESSAGES_IN_QUEUE) && (nextURBMessage <= FIFOTotal)) {
-                    String new_message = Integer.toString(nextURBMessage);
-                    String content = Integer.toString(server.getHost().getId()) + ';' + new_message;
-                    messages.add(content);
-                    server.FIFOBroadcasted(nextURBMessage);
-                    nextURBMessage += 1;
-                }
-                lastMessageURB.put(host.getId(), nextURBMessage - 1);
             }
         }
     }
-
-//    public void FIFOBroadcast(String content) {
-//        uniformReliableBroadcast(content);
-//    }
 }

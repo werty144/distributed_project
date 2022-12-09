@@ -92,26 +92,37 @@ def count_total_delivered(proc_messages):
 	print(f"Total messages delivered: {total}" )
 
 
-def main():
-	
+def get_proc_names():
+	names = set()
+	for file in os.listdir(log_folder):
+		if file.endswith('.output'):
+			process_name = file.split('.')[0]
+			names.add(process_name)
+	return names
 
-	n_messages = -1
-	with open(os.path.join(log_folder, 'config')) as f:
-		n_messages = int(f.read().splitlines()[0].split()[0])
+
+def get_proposal(name):
+	for file in os.listdir(log_folder):
+		if file.endswith(f'{name}.config'):
+			
+
+
+def check_validity():
+	names = get_proc_names()
+	for name in names:
+
+
+
+def main():
+
 
 	n_processes = -1
 	with open(os.path.join(log_folder, 'hosts')) as f:
 		n_processes = len(f.read().splitlines())
 
-	proc_messages = get_messages()
+	names = get_proc_names()
 
-	check_errors()
-	count_total_delivered(proc_messages)
-	check_no_bullshit(proc_messages, n_processes, n_messages)
-	check_no_creation(proc_messages, n_messages)
-	check_no_duplication(proc_messages)
-	check_uniform_agreement(proc_messages)
-	check_fifo(proc_messages)
+
 
 
 
