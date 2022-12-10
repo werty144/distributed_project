@@ -101,16 +101,52 @@ def get_proc_names():
 	return names
 
 
-def get_proposal(name):
+def get_proposals(name):
+	proposals = []
 	for file in os.listdir(log_folder):
 		if file.endswith(f'{name}.config'):
+			with open(os.path.join(log_folder, file)) as f:
+				lines = f.read().splitlines()
+				for line in lines[1:]:
+					proposals.append([int(x) for x in line.split()])
+	return proposals
 			
 
+def get_decisions(name):
+	decisions = []
+	for file in os.listdir(log_folder):
+		if file.endswith(f'{name}.output'):
+			with open(os.path.join(log_folder, file)) as f:
+				lines = f.read().splitlines()
+				for line in lines:
+					decisions.append([int(x) for x in line.split()])
+	return decisions
 
-def check_validity():
-	names = get_proc_names()
+
+def check_validity(names, proposals, decisions):
 	for name in names:
+		for i, prop in enumerate(proposals[name]):
+			dec = decisions[name][i]
+			subset_check = all(x in dec for x in prop)
+			if not subset_check:
+				print(f"Violated validity self-subset at {name} round {i + 1}")
 
+			props_union = []
+			for nm in names:
+				props_union += proposals[nm][i]
+			
+			superset_check = all(x in props_union for x in dec)
+			if not superset_check:
+				print(f"Violated validity superset at {name} round {i + 1}")
+
+
+def check_consistency(names, proposals, decisions):
+	for name in names:
+		for i, prop in enumerate(proposals[name]):
+			for other in names:
+				consistency_check = all(x in decisions[other][i] for x in decisions[name][i]) or all(x in decisions[name][i] for x in decisions[other][i])
+				if not consistency_check:
+					print(f"Violated consistency for {name} and {other} at round {i + 1}")
 
 
 def main():
@@ -121,6 +157,11 @@ def main():
 		n_processes = len(f.read().splitlines())
 
 	names = get_proc_names()
+	proposals = {name: get_proposals(name) for name in names}
+	decisions = {name: get_decisions(name) for name in names}
+
+	check_validity(names, proposals, decisions)
+	check_consistency(names, proposals, decisions)
 
 
 
