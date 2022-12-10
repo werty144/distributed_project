@@ -118,6 +118,8 @@ public class Main {
             }
             proposals.add(proposal);
         }
-        server.latticeProposal(proposals.get(0));
+        for (Set<Integer> proposal : proposals) {
+            server.latticeProposer.propose(proposal);
+        }
     }
 }

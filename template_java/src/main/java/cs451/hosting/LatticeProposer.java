@@ -2,14 +2,27 @@ package cs451.hosting;
 
 import cs451.parsing.MessageParser;
 
+import java.awt.image.AreaAveragingScaleFilter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 
-public class LatticeProposer {
+class Round {
+    int round_number;
     boolean active = false;
     int ack_count = 0;
     int nack_count = 0;
     int active_proposal_number = 0;
     Set<Integer> proposed_value = null;
+
+    public Round(int round_number) {
+        this.round_number = round_number;
+    }
+}
+
+public class LatticeProposer {
+    List<Round> rounds = new ArrayList<>();
     Server server;
     int f;
 
@@ -19,50 +32,56 @@ public class LatticeProposer {
     }
 
     public void propose(Set<Integer> proposal) {
-        System.out.println("Proposing " + proposal);
-        proposed_value = proposal;
-        active = true;
-        active_proposal_number++;
-        ack_count = 0;
-        nack_count = 0;
-        broadcast_value();
+        Round round = new Round(rounds.size());
+        rounds.add(round);
+        round.proposed_value = proposal;
+        round.active = true;
+        round.active_proposal_number++;
+        round.ack_count = 0;
+        round.nack_count = 0;
+        broadcast_value(round);
     }
 
-    public void receive_ack(int proposal_number) {
-        if (proposal_number == active_proposal_number) {
-            ack_count++;
-            process_new_opinion();
+    public void receive_ack(int round_number, int proposal_number) {
+        Round round = rounds.get(round_number);
+        if (proposal_number == round.active_proposal_number) {
+            round.ack_count++;
+            process_new_opinion(round);
         }
     }
 
-    public void receive_nack(int proposal_number, Set<Integer> value) {
-        if (proposal_number == active_proposal_number) {
-            proposed_value.addAll(value);
-            nack_count++;
-            process_new_opinion();
+    public void receive_nack( int round_number, int proposal_number, Set<Integer> value) {
+        Round round = rounds.get(round_number);
+        if (proposal_number == round.active_proposal_number) {
+            round.proposed_value.addAll(value);
+            round.nack_count++;
+            process_new_opinion(round);
         }
     }
 
-    void process_new_opinion() {
-        if (nack_count > 0 && ack_count + nack_count >= f + 1 && active) {
-            active_proposal_number++;
-            ack_count = 0;
-            nack_count = 0;
-            broadcast_value();
+    void process_new_opinion(Round round) {
+        if (round.nack_count > 0 && round.ack_count + round.nack_count >= f + 1 && round.active) {
+            round.active_proposal_number++;
+            round.ack_count = 0;
+            round.nack_count = 0;
+            broadcast_value(round);
         }
 
-        if (ack_count >= f + 1 && active) {
-            decide();
-            active = false;
+        if (round.ack_count >= f + 1 && round.active) {
+            decide(round);
+            round.active = false;
         }
     }
 
-    void broadcast_value() {
-        String message = "PROPOSAL$" + MessageParser.createSetString(proposed_value) + ';' + active_proposal_number;
+    void broadcast_value(Round round) {
+        byte[] message = MessageParser.createLatticeProposal(
+                round.round_number,
+                round.active_proposal_number,
+                round.proposed_value);
         server.bestEffortBroadcast(message);
     }
 
-    void decide() {
-        server.logs.add(MessageParser.createSetString(proposed_value));
+    void decide(Round round) {
+        server.decide(round.round_number, round.proposed_value);
     }
 }

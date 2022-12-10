@@ -1,6 +1,6 @@
 package cs451.hosting;
 import cs451.parsing.MessageParser;
-import cs451.parsing.MyPair;
+import cs451.parsing.MyTriple;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -20,7 +20,7 @@ public class Receiver extends Thread {
     public Receiver(DatagramSocket UDPSocket, Server server) {
         this.UDPSocket = UDPSocket;
         this.server = server;
-        buf = new byte[256];
+        buf = new byte[2048];
         packet = new DatagramPacket(buf, buf.length);
         for (Host host : server.hosts) {
             try {
@@ -47,18 +47,22 @@ public class Receiver extends Thread {
             return;
         }
 
-        String content = new String(packet.getData(), 0, packet.getLength());
+        byte[] content = Arrays.copyOfRange(packet.getData(), 0, packet.getLength());
         String ip = InetAddressToIP.get(packet.getAddress());
         if (ip.startsWith("/")) {
             ip = ip.substring(1);
         }
 
-        if (content.startsWith("ack$")) {
-            server.receiveAcknowledgement(ip, packet.getPort(), content.substring(4));
+        if (content[0] == MessageParser.ACK_PREFIX) {
+            server.receiveAcknowledgement(
+                    ip,
+                    packet.getPort(),
+                    Arrays.copyOfRange(content, 1, content.length)
+            );
             return;
         }
 
-        for (String individualMessage : content.split("&")) {
+        for (byte[] individualMessage : MessageParser.getIndividualMessages(content)) {
             server.receiveMessageFLL(ip, packet.getPort(), individualMessage);
             receiveBEB(ip, packet.getPort(), individualMessage);
         }
@@ -72,23 +76,27 @@ public class Receiver extends Thread {
         }
     }
 
-    private void receiveBEB(String ip, Integer port, String content) {
+    private void receiveBEB(String ip, Integer port, byte[] content) {
 
         int senderID = server.getHost(ip, port).getId();
-
-        if (content.startsWith("ACK$")) {
-            int proposal_number = MessageParser.parseLatticeAck(content);
-            server.receiveLatticeACK(proposal_number);
+        if (content[0] == MessageParser.LATTICE_ACK_PREFIX) {
+            MyTriple ans = MessageParser.parseLatticeAck(content);
+            server.latticeProposer.receive_ack(ans.round_number, ans.proposal_number);
         }
 
-        if (content.startsWith("NACK$")) {
-            MyPair ans = MessageParser.parseLatticeNack(content);
-            server.receiveLatticeNACK(ans.proposal_number, ans.value);
+        if (content[0] == MessageParser.LATTICE_NACK_PREFIX) {
+            MyTriple ans = MessageParser.parseLatticeNack(content);
+            server.latticeProposer.receive_nack(ans.round_number, ans.proposal_number, ans.value);
         }
 
-        if (content.startsWith("PROPOSAL$")) {
-            MyPair ans = MessageParser.parseLatticeProposal(content);
-            server.receiveLatticeProposal(ans.value, ans.proposal_number, server.getHost(ip, port));
+        if (content[0] == MessageParser.LATTICE_PROPOSAL_PREFIX) {
+            MyTriple ans = MessageParser.parseLatticeProposal(content);
+            server.latticeAcceptor.receive_proposal(
+                    ans.round_number,
+                    ans.value,
+                    ans.proposal_number,
+                    server.getHost(ip, port)
+            );
         }
     }
 }

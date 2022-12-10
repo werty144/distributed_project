@@ -148,6 +148,12 @@ def check_consistency(names, proposals, decisions):
 				if not consistency_check:
 					print(f"Violated consistency for {name} and {other} at round {i + 1}")
 
+def check_termination(names, proposals, decisions):
+	for name in names:
+		termination_check = len(proposals[name]) == len(decisions[name])
+		if not termination_check:
+			print(f"Violated termination at {name}")
+
 
 def main():
 
@@ -156,12 +162,15 @@ def main():
 	with open(os.path.join(log_folder, 'hosts')) as f:
 		n_processes = len(f.read().splitlines())
 
+	check_errors()
+
 	names = get_proc_names()
 	proposals = {name: get_proposals(name) for name in names}
 	decisions = {name: get_decisions(name) for name in names}
 
 	check_validity(names, proposals, decisions)
 	check_consistency(names, proposals, decisions)
+	check_termination(names, proposals, decisions)
 
 
 

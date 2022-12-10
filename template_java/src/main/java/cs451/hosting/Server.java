@@ -1,35 +1,13 @@
 package cs451.hosting;
 
 import cs451.Message;
+import cs451.parsing.MessageParser;
 
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.*;
 
 import static java.lang.Math.max;
-
-
-//class Pair<T1, T2> {
-//    T1 first;
-//    T2 second;
-//
-//    public Pair(T1 fst, T2 snd) {
-//        first = fst;
-//        second = snd;
-//    }
-//
-//    @Override
-//    public boolean equals(Object obj) {
-//        if (getClass() != obj.getClass()) return false;
-//        Pair<T1, T2> other = (Pair<T1, T2>) obj;
-//        return other.first.equals(first) && other.second.equals(second);
-//    }
-//
-//    @Override
-//    public int hashCode() {
-//        return (first.toString() + '$' + second.toString()).hashCode();
-//    }
-//}
 
 public class Server {
     private Host host;
@@ -72,21 +50,22 @@ public class Server {
         sender.interrupt();
     }
 
-    public void receiveMessageFLL(String ip, int port, String message) {
+    public void receiveMessageFLL(String ip, int port, byte[] message) {
         acknowledge(ip, port, message);
     }
 
-    void acknowledge(String ip, int port, String message) {
-        this.sender.sendMessageFLL("ack$" + message, ip, port);
+    void acknowledge(String ip, int port, byte[] message) {
+        byte[] ack = MessageParser.createAck(message);
+        this.sender.sendMessageFLL(ack, ip, port);
     }
 
-    public void receiveAcknowledgement(String ip, int port, String message) {
+    public void receiveAcknowledgement(String ip, int port, byte[] message) {
         Host sender = getHost(ip, port);
         this.sender.acknowledged(sender, message);
     }
 
-    public void sendMessageFLL(String message, Host host) {
-        this.sender.sendMessageFLL(message, host.getIp(), host.getPort());
+    public void sendMessageSL(byte[] message, Host host) {
+        this.sender.sendMessageSL(message, host);
     }
 
     public void receiveMessagePL(String ip, int port, String content) {
@@ -101,23 +80,21 @@ public class Server {
         }
         return null;
     }
-    public void bestEffortBroadcast(String message) {
+    public void bestEffortBroadcast(byte[] message) {
         sender.bestEffortBroadCast(message);
     }
 
-    public void receiveLatticeACK(int proposal_number) {
-        latticeProposer.receive_ack(proposal_number);
-    }
+    public void decide(int round, Set<Integer> decision) {
+        StringBuilder sb = new StringBuilder();
+        for (int x : decision) {
+            sb.append(x);
+            sb.append(' ');
+        }
+        sb.deleteCharAt(sb.length() - 1);
 
-    public void receiveLatticeNACK(int proposal_number, Set<Integer> accepted_value) {
-        latticeProposer.receive_nack(proposal_number, accepted_value);
-    }
-
-    public void receiveLatticeProposal(Set<Integer> proposed_value, int proposal_number, Host sender) {
-        latticeAcceptor.receive_proposal(proposed_value, proposal_number, sender);
-    }
-
-    public void latticeProposal(Set<Integer> proposed_value) {
-        latticeProposer.propose(proposed_value);
+        while (logs.size() <= round) {
+            logs.add(null);
+        }
+        logs.set(round, sb.toString());
     }
 }

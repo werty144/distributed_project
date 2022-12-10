@@ -5,9 +5,9 @@ import cs451.hosting.Host;
 public class Message {
     private Host sender;
     private Host receiver;
-    private String content;
+    private byte[] content;
 
-    public Message(String content, Host sender, Host receiver) {
+    public Message(byte[] content, Host sender, Host receiver) {
         this.content = content;
         this.sender = sender;
         this.receiver = receiver;
@@ -21,7 +21,7 @@ public class Message {
         return sender;
     }
 
-    public String getContent() {
+    public byte[] getContent() {
         return content;
     }
 }

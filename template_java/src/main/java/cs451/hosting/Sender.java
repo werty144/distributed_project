@@ -2,6 +2,8 @@ package cs451.hosting;
 
 import cs451.Message;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -14,10 +16,10 @@ import static java.lang.Math.max;
 public class Sender extends Thread {
     private DatagramSocket UDPSocket;
     private Server server;
-    private final Map<Integer, List<String>> receiversToMessages = new HashMap<>();
+    private final Map<Integer, List<byte[]>> receiversToMessages = new HashMap<>();
     private final Map<Integer, Host> idsToHosts = new HashMap<>();
     private final Map<Integer, Integer> lastMessageBEB = new HashMap<>();
-    private final List<String> messagesToBEB = Collections.synchronizedList(new LinkedList<>());
+    private final List<byte[]> messagesToBEB = Collections.synchronizedList(new LinkedList<>());
     int MAX_MESSAGES_IN_QUEUE;
 
     Map <String, InetAddress> inetAddress = new HashMap<>();
@@ -48,18 +50,21 @@ public class Sender extends Thread {
         for (Integer id : receiversToMessages.keySet()) {
             Host receiver = idsToHosts.get(id);
             int messagesConcatenated = 0;
-            StringBuilder concatenatedMessage = new StringBuilder();
-            List<String> messages = receiversToMessages.get(id);
+            ByteArrayOutputStream concatenatedMessage = new ByteArrayOutputStream();
+            List<byte[]> messages = receiversToMessages.get(id);
             synchronized (messages) {
                 int messageBucketsSent = 0;
-                for (String content : messages) {
+                for (byte[] content : messages) {
                     if (messagesConcatenated == maxConcatNumber) {
-                        sendMessageFLL(concatenatedMessage.toString(), receiver.getIp(), receiver.getPort());
+                        sendMessageFLL(concatenatedMessage.toByteArray(), receiver.getIp(), receiver.getPort());
                         messageBucketsSent += 1;
                         messagesConcatenated = 0;
-                        concatenatedMessage.setLength(0);
+                        concatenatedMessage.reset();
                     }
-                    concatenatedMessage.append(content).append("&");
+                    try {
+                        concatenatedMessage.write(content);
+                        concatenatedMessage.write((byte) '&');
+                    } catch (IOException ignored) {}
                     messagesConcatenated += 1;
 
                     if (messageBucketsSent == 100) {
@@ -73,8 +78,8 @@ public class Sender extends Thread {
                 }
             }
 
-            if (concatenatedMessage.length() > 0) {
-                sendMessageFLL(concatenatedMessage.toString(), receiver.getIp(), receiver.getPort());
+            if (concatenatedMessage.size() > 0) {
+                sendMessageFLL(concatenatedMessage.toByteArray(), receiver.getIp(), receiver.getPort());
             }
         }
     }
@@ -116,12 +121,11 @@ public class Sender extends Thread {
         }
     }
 
-    public void sendMessageFLL(String content, String ip, int port) {
-        byte[] buf = content.getBytes();
+    public void sendMessageFLL(byte[] content, String ip, int port) {
         InetAddress address = inetAddress.get(ip);
         DatagramPacket packet = new DatagramPacket(
-                buf,
-                buf.length,
+                content,
+                content.length,
                 address,
                 port
         );
@@ -132,26 +136,22 @@ public class Sender extends Thread {
         }
     }
 
-    public void sendMessageSL(Message message) {
-        List<String> messages = receiversToMessages.get(message.getReceiver().getId());
+    public void sendMessageSL(byte[] message, Host receiver) {
+        List<byte[]> messages = receiversToMessages.get(receiver.getId());
         synchronized (messages) {
-            messages.add(message.getContent());
+            messages.add(message);
         }
     }
 
-    public void sendMessagePL(Message message) {
-        sendMessageSL(message);
-    }
 
-
-    public void acknowledged(Host receiver, String content) {
-        List<String> messages = receiversToMessages.get(receiver.getId());
+    public void acknowledged(Host receiver, byte[] content) {
+        List<byte[]> messages = receiversToMessages.get(receiver.getId());
         synchronized (messages) {
-            messages.removeIf(m -> m.equals(content));
+            messages.removeIf(m -> Arrays.equals(m, content));
         }
     }
 
-    public void bestEffortBroadCast(String message) {
+    public void bestEffortBroadCast(byte[] message) {
         synchronized (messagesToBEB) {
             messagesToBEB.add(message);
         }
@@ -159,7 +159,7 @@ public class Sender extends Thread {
 
     public void updateQueues() {
         for (Host host : server.hosts) {
-            List<String> messages = receiversToMessages.get(host.getId());
+            List<byte[]> messages = receiversToMessages.get(host.getId());
             synchronized (messages) {
 
                 synchronized (messagesToBEB) {
