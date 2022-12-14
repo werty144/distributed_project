@@ -20,7 +20,7 @@ public class Receiver extends Thread {
     public Receiver(DatagramSocket UDPSocket, Server server) {
         this.UDPSocket = UDPSocket;
         this.server = server;
-        buf = new byte[2048];
+        buf = new byte[32904];
         packet = new DatagramPacket(buf, buf.length);
         for (Host host : server.hosts) {
             try {
@@ -53,11 +53,11 @@ public class Receiver extends Thread {
             ip = ip.substring(1);
         }
 
-        if (content[0] == MessageParser.ACK_PREFIX) {
+        if (content[4] == MessageParser.ACK_PREFIX) {
             server.receiveAcknowledgement(
                     ip,
                     packet.getPort(),
-                    Arrays.copyOfRange(content, 1, content.length)
+                    Arrays.copyOfRange(content, 5, content.length)
             );
             return;
         }
@@ -77,7 +77,6 @@ public class Receiver extends Thread {
     }
 
     private void receiveBEB(String ip, Integer port, byte[] content) {
-
         int senderID = server.getHost(ip, port).getId();
         if (content[0] == MessageParser.LATTICE_ACK_PREFIX) {
             MyTriple ans = MessageParser.parseLatticeAck(content);

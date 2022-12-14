@@ -8,6 +8,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.util.*;
 
 import static java.lang.Math.max;
@@ -62,8 +63,8 @@ public class Sender extends Thread {
                         concatenatedMessage.reset();
                     }
                     try {
+                        concatenatedMessage.write(ByteBuffer.allocate(4).putInt(content.length).array());
                         concatenatedMessage.write(content);
-                        concatenatedMessage.write((byte) '&');
                     } catch (IOException ignored) {}
                     messagesConcatenated += 1;
 

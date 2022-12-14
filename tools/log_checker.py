@@ -113,14 +113,17 @@ def get_proposals(name):
 			
 
 def get_decisions(name):
-	decisions = []
-	for file in os.listdir(log_folder):
-		if file.endswith(f'{name}.output'):
-			with open(os.path.join(log_folder, file)) as f:
-				lines = f.read().splitlines()
-				for line in lines:
-					decisions.append([int(x) for x in line.split()])
-	return decisions
+	try:
+		decisions = []
+		for file in os.listdir(log_folder):
+			if file.endswith(f'{name}.output'):
+				with open(os.path.join(log_folder, file)) as f:
+					lines = f.read().splitlines()
+					for line in lines:
+						decisions.append([int(x) for x in line.split()])
+		return decisions
+	except:
+		print(f"Could not parse " + name + "'s decisions")
 
 
 def check_validity(names, proposals, decisions):

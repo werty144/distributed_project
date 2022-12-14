@@ -85,13 +85,12 @@ public class MessageParser {
     }
 
     public static ArrayList<byte[]> getIndividualMessages(byte[] message) {
-        int lastSeptum = -1;
+        int lastMessageOffset = 0;
         ArrayList<byte[]> messages = new ArrayList<>();
-        for (int i = 0; i < message.length; i++) {
-            if (message[i] == (byte)'&') {
-                messages.add(Arrays.copyOfRange(message, lastSeptum + 1, i));
-                lastSeptum = i;
-            }
+        while (lastMessageOffset < message.length) {
+            int curSize = getInt(message, lastMessageOffset);
+            messages.add(Arrays.copyOfRange(message, lastMessageOffset + 4, lastMessageOffset + curSize + 4));
+            lastMessageOffset = lastMessageOffset + curSize + 4;
         }
         return messages;
     }
