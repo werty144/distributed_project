@@ -129,6 +129,9 @@ def get_decisions(name):
 def check_validity(names, proposals, decisions):
 	for name in names:
 		for i, prop in enumerate(proposals[name]):
+			if len(decisions[name]) <= i:
+				print(f"Process {name} decided {len(decisions[name])} out of {len(proposals[name])}")
+				break
 			dec = decisions[name][i]
 			subset_check = all(x in dec for x in prop)
 			if not subset_check:

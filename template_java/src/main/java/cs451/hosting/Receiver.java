@@ -6,14 +6,33 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.util.*;
 
+
+class PLMessage {
+    byte[] content;
+    public PLMessage(byte[] content) {
+        this.content = content;
+    }
+
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(content);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof PLMessage)) return false;
+        return Arrays.equals(((PLMessage) obj).content, content);
+    }
+}
 
 public class Receiver extends Thread {
     private DatagramSocket UDPSocket;
     private byte[] buf;
     private DatagramPacket packet;
-    private Set<String> PLMessages = new HashSet<>();
+    private Set<PLMessage> PLMessages = new HashSet<>();
     private Server server;
 
     private Map<InetAddress, String> InetAddressToIP = new HashMap<>();
@@ -35,11 +54,11 @@ public class Receiver extends Thread {
 
     public void run() {
         while (true) {
-            receiveFLL();
+            receiveRawFLL();
         }
     }
 
-    private void receiveFLL() {
+    private void receiveRawFLL() {
         try {
             UDPSocket.receive(packet);
         } catch (Exception e) {
@@ -53,43 +72,46 @@ public class Receiver extends Thread {
             ip = ip.substring(1);
         }
 
-        if (content[4] == MessageParser.ACK_PREFIX) {
+        for (byte[] individualMessage : MessageParser.getIndividualMessages(content)) {
+            receiveFLL(individualMessage, ip, packet.getPort());
+        }
+    }
+
+    private void receiveFLL(byte[] message, String ip, int port) {
+        if (message[0] == MessageParser.ACK_PREFIX) {
             server.receiveAcknowledgement(
                     ip,
-                    packet.getPort(),
-                    Arrays.copyOfRange(content, 5, content.length)
+                    port,
+                    Arrays.copyOfRange(message, 1, message.length)
             );
             return;
         }
-
-        for (byte[] individualMessage : MessageParser.getIndividualMessages(content)) {
-            server.receiveMessageFLL(ip, packet.getPort(), individualMessage);
-            receiveBEB(ip, packet.getPort(), individualMessage);
-        }
+        server.receiveMessageFLL(ip, port, message);
+        receivePL(message, ip, port);
     }
 
-    private void receivePL(String ip, Integer port, String content) {
-        String uniqueID = ip + '$' + port + '$' + content;
-        if (!PLMessages.contains(uniqueID)) {
-            PLMessages.add(uniqueID);
-            server.receiveMessagePL(ip, port, content);
+    private void receivePL(byte[] message, String ip, int port) {
+        ByteBuffer bb = ByteBuffer.allocate(message.length + 4);
+        bb.putInt(server.getHost(ip, port).getId());
+        bb.put(Arrays.copyOf(message, message.length));
+        PLMessage plMessage = new PLMessage(bb.array());
+        if (PLMessages.contains(plMessage)) {
+            return;
         }
-    }
+        PLMessages.add(plMessage);
 
-    private void receiveBEB(String ip, Integer port, byte[] content) {
-        int senderID = server.getHost(ip, port).getId();
-        if (content[0] == MessageParser.LATTICE_ACK_PREFIX) {
-            MyTriple ans = MessageParser.parseLatticeAck(content);
+        if (message[0] == MessageParser.LATTICE_ACK_PREFIX) {
+            MyTriple ans = MessageParser.parseLatticeAck(message);
             server.latticeProposer.receive_ack(ans.round_number, ans.proposal_number);
         }
 
-        if (content[0] == MessageParser.LATTICE_NACK_PREFIX) {
-            MyTriple ans = MessageParser.parseLatticeNack(content);
+        if (message[0] == MessageParser.LATTICE_NACK_PREFIX) {
+            MyTriple ans = MessageParser.parseLatticeNack(message);
             server.latticeProposer.receive_nack(ans.round_number, ans.proposal_number, ans.value);
         }
 
-        if (content[0] == MessageParser.LATTICE_PROPOSAL_PREFIX) {
-            MyTriple ans = MessageParser.parseLatticeProposal(content);
+        if (message[0] == MessageParser.LATTICE_PROPOSAL_PREFIX) {
+            MyTriple ans = MessageParser.parseLatticeProposal(message);
             server.latticeAcceptor.receive_proposal(
                     ans.round_number,
                     ans.value,
