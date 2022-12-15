@@ -75,7 +75,6 @@ public class Receiver extends Thread {
             ip = ip.substring(1);
         }
 
-        System.out.println(Arrays.toString(content));
         for (Message individualMessage : MessageParser.getIndividualMessages(content)) {
             receiveFLL(individualMessage, ip, packet.getPort());
         }

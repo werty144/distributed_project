@@ -9,6 +9,8 @@ import java.io.FileWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.lang.Thread.sleep;
+
 public class Main {
     static Parser parser;
     static Server server;
@@ -85,7 +87,7 @@ public class Main {
         // it waits forever for the delivery of messages.
         while (true) {
             // Sleep for 1 hour
-            Thread.sleep(60 * 60 * 1000);
+            sleep(60 * 60 * 1000);
         }
     }
 
@@ -116,7 +118,12 @@ public class Main {
             for (String num : nums) {
                 proposal.add(Integer.parseInt(num));
             }
-            proposals.add(proposal);
+            Round curRound = server.latticeProposer.propose(proposal);
+            while (!curRound.finished) {
+                try {
+                    sleep(10);
+                } catch (InterruptedException ignored){}
+            }
         }
         for (Set<Integer> proposal : proposals) {
             server.latticeProposer.propose(proposal);

@@ -9,19 +9,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
-class Round {
-    int round_number;
-    boolean active = false;
-    int ack_count = 0;
-    int nack_count = 0;
-    int active_proposal_number = 0;
-    Set<Integer> proposed_value = null;
-
-    public Round(int round_number) {
-        this.round_number = round_number;
-    }
-}
-
 public class LatticeProposer {
     List<Round> rounds = new ArrayList<>();
     Server server;
@@ -32,7 +19,7 @@ public class LatticeProposer {
         f = (server.hosts.size() - 1) / 2;
     }
 
-    public void propose(Set<Integer> proposal) {
+    public Round propose(Set<Integer> proposal) {
         Round round = new Round(rounds.size());
         rounds.add(round);
         round.proposed_value = proposal;
@@ -41,6 +28,7 @@ public class LatticeProposer {
         round.ack_count = 0;
         round.nack_count = 0;
         broadcast_value(round);
+        return round;
     }
 
     public void receive_ack(int round_number, int proposal_number) {
@@ -84,5 +72,6 @@ public class LatticeProposer {
 
     void decide(Round round) {
         server.decide(round.round_number, round.proposed_value);
+        round.finished = true;
     }
 }
