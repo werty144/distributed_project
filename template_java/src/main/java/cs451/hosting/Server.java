@@ -50,21 +50,20 @@ public class Server {
         sender.interrupt();
     }
 
-    public void receiveMessageFLL(String ip, int port, byte[] message) {
+    public void receiveMessageFLL(String ip, int port, Message message) {
         acknowledge(ip, port, message);
     }
 
-    void acknowledge(String ip, int port, byte[] message) {
-        byte[] ack = MessageParser.createAck(message);
-        this.sender.sendMessageFLL(ack, ip, port);
+    void acknowledge(String ip, int port, Message message) {
+        this.sender.acknowledge(message, ip, port);
     }
 
-    public void receiveAcknowledgement(String ip, int port, byte[] message) {
+    public void receiveAcknowledgement(String ip, int port, Message message) {
         Host sender = getHost(ip, port);
-        this.sender.acknowledged(sender, message);
+        this.sender.acknowledged(sender, message.id);
     }
 
-    public void sendMessageSL(byte[] message, Host host) {
+    public void sendMessageSL(Message message, Host host) {
         this.sender.sendMessageSL(message, host);
     }
 
@@ -80,7 +79,7 @@ public class Server {
         }
         return null;
     }
-    public void bestEffortBroadcast(byte[] message) {
+    public void bestEffortBroadcast(Message message) {
         sender.bestEffortBroadCast(message);
     }
 

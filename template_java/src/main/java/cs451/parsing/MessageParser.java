@@ -1,5 +1,7 @@
 package cs451.parsing;
 
+import cs451.Message;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -13,83 +15,82 @@ public class MessageParser {
     public static byte LATTICE_ACK_PREFIX = 1;
     public static byte LATTICE_NACK_PREFIX = 2;
     public static byte LATTICE_PROPOSAL_PREFIX = 3;
-    public static byte[] createAck(byte[] message) {
-        ByteBuffer bb = ByteBuffer.allocate(1 + message.length);
-        bb.put(ACK_PREFIX);
-        bb.put(message);
-        return bb.array();
+    public static Message createAck(int acked_id) {
+        return new Message(ACK_PREFIX, ByteBuffer.allocate(4).putInt(acked_id).array());
     }
 
-    public static byte[] createLatticeAck(int round_number, int proposal_number) {
-        ByteBuffer bb = ByteBuffer.allocate(9);
-        bb.put(LATTICE_ACK_PREFIX);
+    public static Message createLatticeAck(int round_number, int proposal_number) {
+        ByteBuffer bb = ByteBuffer.allocate(8);
         bb.putInt(round_number);
         bb.putInt(proposal_number);
-        return bb.array();
+        return new Message(LATTICE_ACK_PREFIX, bb.array());
     }
 
-    public static MyTriple parseLatticeAck(byte[] message) {
-        int round_number = getInt(message, 1);
-        int proposal_number = getInt(message, 5);
+    public static MyTriple parseLatticeAck(Message message) {
+        assert (message.type == LATTICE_ACK_PREFIX);
+        int round_number = getInt(message.content, 0);
+        int proposal_number = getInt(message.content, 4);
         return new MyTriple(round_number, proposal_number, null);
     }
 
-    static int getInt(byte[] array, int index) {
+    public static int getInt(byte[] array, int index) {
         return ByteBuffer.wrap(Arrays.copyOfRange(array, index, index + 4)).getInt();
     }
 
-    public static byte[] createLatticeNack(int round_number, int proposal_number, Set<Integer> accepted_value) {
-        ByteBuffer bb = ByteBuffer.allocate(13 + 4 * accepted_value.size());
-        bb.put(LATTICE_NACK_PREFIX);
+    public static Message createLatticeNack(int round_number, int proposal_number, Set<Integer> accepted_value) {
+        ByteBuffer bb = ByteBuffer.allocate(12 + 4 * accepted_value.size());
         bb.putInt(round_number);
         bb.putInt(proposal_number);
         bb.putInt(accepted_value.size());
         for (int x : accepted_value) {
             bb.putInt(x);
         }
-        return bb.array();
+        return new Message(LATTICE_NACK_PREFIX, bb.array());
     }
 
-    public static MyTriple parseLatticeNack(byte[] message) {
-        int round_number = getInt(message, 1);
-        int proposal_number = getInt(message, 5);
-        int set_size = getInt(message, 9);
+    public static MyTriple parseLatticeNack(Message message) {
+        assert (message.type == LATTICE_NACK_PREFIX);
+        int round_number = getInt(message.content, 0);
+        int proposal_number = getInt(message.content, 4);
+        int set_size = getInt(message.content, 8);
         Set<Integer> accepted_value = new HashSet<>();
         for (int i = 0; i < set_size; i++) {
-            accepted_value.add(getInt(message, 13 + 4 * i));
+            accepted_value.add(getInt(message.content, 12 + 4 * i));
         }
         return new MyTriple(round_number, proposal_number, accepted_value);
     }
 
-    public static byte[] createLatticeProposal(int round_number, int proposal_number, Set<Integer> proposed_value) {
-        ByteBuffer bb = ByteBuffer.allocate(13 + 4 * proposed_value.size());
-        bb.put(LATTICE_PROPOSAL_PREFIX);
+    public static Message createLatticeProposal(int round_number, int proposal_number, Set<Integer> proposed_value) {
+        ByteBuffer bb = ByteBuffer.allocate(12 + 4 * proposed_value.size());
         bb.putInt(round_number);
         bb.putInt(proposal_number);
         bb.putInt(proposed_value.size());
         for (int x: proposed_value) {
             bb.putInt(x);
         }
-        return bb.array();
+        return new Message(LATTICE_PROPOSAL_PREFIX, bb.array());
     }
 
-    public static MyTriple parseLatticeProposal(byte[] message) {
-        int round_number = getInt(message, 1);
-        int proposal_number = getInt(message, 5);
-        int set_size = getInt(message, 9);
+    public static MyTriple parseLatticeProposal(Message message) {
+        assert (message.type == LATTICE_PROPOSAL_PREFIX);
+        int round_number = getInt(message.content, 0);
+        int proposal_number = getInt(message.content, 4);
+        int set_size = getInt(message.content, 8);
         Set<Integer> proposed_value = new HashSet<>();
         for (int i = 0; i < set_size; i++) {
-            proposed_value.add(getInt(message, 13 + 4 * i));
+            proposed_value.add(getInt(message.content, 12 + 4 * i));
         }
         return new MyTriple(round_number, proposal_number, proposed_value);
     }
 
-    public static ArrayList<byte[]> getIndividualMessages(byte[] message) {
+    public static ArrayList<Message> getIndividualMessages(byte[] raw) {
         int lastMessageOffset = 0;
-        ArrayList<byte[]> messages = new ArrayList<>();
-        while (lastMessageOffset < message.length) {
-            int curSize = getInt(message, lastMessageOffset);
-            messages.add(Arrays.copyOfRange(message, lastMessageOffset + 4, lastMessageOffset + curSize + 4));
+        ArrayList<Message> messages = new ArrayList<>();
+        while (lastMessageOffset < raw.length) {
+            int curSize = getInt(raw, lastMessageOffset);
+            byte[] raw_message = Arrays.copyOfRange(raw, lastMessageOffset + 4, lastMessageOffset + curSize + 4);
+            Message message = Message.fromBytes(raw_message);
+            messages.add(message);
             lastMessageOffset = lastMessageOffset + curSize + 4;
         }
         return messages;

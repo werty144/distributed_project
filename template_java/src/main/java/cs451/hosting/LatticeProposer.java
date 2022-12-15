@@ -1,5 +1,6 @@
 package cs451.hosting;
 
+import cs451.Message;
 import cs451.parsing.MessageParser;
 
 import java.awt.image.AreaAveragingScaleFilter;
@@ -74,7 +75,7 @@ public class LatticeProposer {
     }
 
     void broadcast_value(Round round) {
-        byte[] message = MessageParser.createLatticeProposal(
+        Message message = MessageParser.createLatticeProposal(
                 round.round_number,
                 round.active_proposal_number,
                 round.proposed_value);

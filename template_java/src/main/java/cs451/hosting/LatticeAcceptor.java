@@ -1,5 +1,6 @@
 package cs451.hosting;
 
+import cs451.Message;
 import cs451.parsing.MessageParser;
 
 import java.awt.image.AreaAveragingScaleFilter;
@@ -28,12 +29,12 @@ public class LatticeAcceptor {
     }
 
     void sendAck(int round_number, Integer proposal_number, Host toWhom) {
-        byte[] message = MessageParser.createLatticeAck(round_number, proposal_number);
+        Message message = MessageParser.createLatticeAck(round_number, proposal_number);
         server.sendMessageSL(message, toWhom);
     }
 
     void sendNack(int round_number, Integer proposal_number, Host toWhom) {
-        byte[] message = MessageParser.createLatticeNack(
+        Message message = MessageParser.createLatticeNack(
                 round_number,
                 proposal_number,
                 accepted_values.get(round_number)

@@ -1,6 +1,7 @@
 package cs451.hosting;
 
 import cs451.Message;
+import cs451.parsing.MessageParser;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -17,10 +18,10 @@ import static java.lang.Math.max;
 public class Sender extends Thread {
     private DatagramSocket UDPSocket;
     private Server server;
-    private final Map<Integer, List<byte[]>> receiversToMessages = new HashMap<>();
+    private final Map<Integer, List<Message>> receiversToMessages = new HashMap<>();
     private final Map<Integer, Host> idsToHosts = new HashMap<>();
     private final Map<Integer, Integer> lastMessageBEB = new HashMap<>();
-    private final List<byte[]> messagesToBEB = Collections.synchronizedList(new LinkedList<>());
+    private final List<Message> messagesToBEB = Collections.synchronizedList(new LinkedList<>());
     int MAX_MESSAGES_IN_QUEUE;
 
     Map <String, InetAddress> inetAddress = new HashMap<>();
@@ -52,10 +53,10 @@ public class Sender extends Thread {
             Host receiver = idsToHosts.get(id);
             int messagesConcatenated = 0;
             ByteArrayOutputStream concatenatedMessage = new ByteArrayOutputStream();
-            List<byte[]> messages = receiversToMessages.get(id);
+            List<Message> messages = receiversToMessages.get(id);
             synchronized (messages) {
                 int messageBucketsSent = 0;
-                for (byte[] content : messages) {
+                for (Message message : messages) {
                     if (messagesConcatenated == maxConcatNumber) {
                         sendMessageFLL(concatenatedMessage.toByteArray(), receiver.getIp(), receiver.getPort());
                         messageBucketsSent += 1;
@@ -63,8 +64,9 @@ public class Sender extends Thread {
                         concatenatedMessage.reset();
                     }
                     try {
-                        concatenatedMessage.write(ByteBuffer.allocate(4).putInt(content.length).array());
-                        concatenatedMessage.write(content);
+                        byte[] messageBytes = message.getBytes();
+                        concatenatedMessage.write(ByteBuffer.allocate(4).putInt(messageBytes.length).array());
+                        concatenatedMessage.write(messageBytes);
                     } catch (IOException ignored) {}
                     messagesConcatenated += 1;
 
@@ -122,7 +124,12 @@ public class Sender extends Thread {
         }
     }
 
-    public void sendMessageFLL(byte[] content, String ip, int port) {
+    public void acknowledge(Message message, String ip, int port) {
+        Message ack = MessageParser.createAck(message.id);
+        sendMessageFLL(ack.getBytesWithLength(), ip, port);
+    }
+
+    private void sendMessageFLL(byte[] content, String ip, int port) {
         InetAddress address = inetAddress.get(ip);
         DatagramPacket packet = new DatagramPacket(
                 content,
@@ -137,22 +144,22 @@ public class Sender extends Thread {
         }
     }
 
-    public void sendMessageSL(byte[] message, Host receiver) {
-        List<byte[]> messages = receiversToMessages.get(receiver.getId());
+    public void sendMessageSL(Message message, Host receiver) {
+        List<Message> messages = receiversToMessages.get(receiver.getId());
         synchronized (messages) {
             messages.add(message);
         }
     }
 
 
-    public void acknowledged(Host receiver, byte[] content) {
-        List<byte[]> messages = receiversToMessages.get(receiver.getId());
+    public void acknowledged(Host receiver, int id) {
+        List<Message> messages = receiversToMessages.get(receiver.getId());
         synchronized (messages) {
-            messages.removeIf(m -> Arrays.equals(m, content));
+            messages.removeIf(m -> m.id == id);
         }
     }
 
-    public void bestEffortBroadCast(byte[] message) {
+    public void bestEffortBroadCast(Message message) {
         synchronized (messagesToBEB) {
             messagesToBEB.add(message);
         }
@@ -160,7 +167,7 @@ public class Sender extends Thread {
 
     public void updateQueues() {
         for (Host host : server.hosts) {
-            List<byte[]> messages = receiversToMessages.get(host.getId());
+            List<Message> messages = receiversToMessages.get(host.getId());
             synchronized (messages) {
 
                 synchronized (messagesToBEB) {
