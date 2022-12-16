@@ -3,6 +3,7 @@ package cs451.hosting;
 import cs451.Message;
 import cs451.parsing.MessageParser;
 
+import java.awt.image.AreaAveragingScaleFilter;
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.*;
@@ -17,7 +18,9 @@ public class Server {
     public List<Host> hosts;
     public LatticeAcceptor latticeAcceptor;
     public LatticeProposer latticeProposer;
-    public final List<String> logs = Collections.synchronizedList(new ArrayList<>());
+    public final List<String> logs = Collections.synchronizedList(new LinkedList<>());
+    private Map<Integer, String> roundsDecisions = new HashMap<>();
+    private int roundToLog = 0;
 
 
 
@@ -96,9 +99,14 @@ public class Server {
         }
         sb.deleteCharAt(sb.length() - 1);
 
-        while (logs.size() <= round) {
-            logs.add(null);
+        roundsDecisions.put(round, sb.toString());
+
+        synchronized (logs) {
+            while (roundsDecisions.containsKey(roundToLog)) {
+                logs.add(roundsDecisions.get(roundToLog));
+                roundsDecisions.remove(roundToLog);
+                roundToLog++;
+            }
         }
-        logs.set(round, sb.toString());
     }
 }

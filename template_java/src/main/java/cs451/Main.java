@@ -6,6 +6,7 @@ import cs451.parsing.Parser;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -14,12 +15,33 @@ import static java.lang.Thread.sleep;
 public class Main {
     static Parser parser;
     static Server server;
+    static FileWriter writer;
+    static TimerTask dumpLogs = new TimerTask() {
+        public void run() {
+            try {
+                synchronized (server.logs) {
+                    int lastLogWritten = -1;
+                    for (int i = 0; i < server.logs.size(); i++) {
+                        String log = server.logs.get(i);
+                        if (log == null) break;
+                        writer.write(log + "\n");
+                        lastLogWritten = i;
+                    }
+                    server.logs.subList(0, lastLogWritten + 1).clear();
+                }
+            } catch (IOException e){
+                e.printStackTrace();
+            }
+        }
+    };
+    static Timer timer = new Timer("Timer");
 
     private static void handleSignal() {
         //immediately stop network packet processing
         System.out.println("Immediately stopping network packet processing.");
         if (server == null) return;
         server.stop();
+        timer.cancel();
 
         //write/flush output file if necessary
         System.out.println("Writing output.");
@@ -28,7 +50,6 @@ public class Main {
 
     private static void logServerOutput() {
         try {
-            FileWriter writer = new FileWriter(parser.output());
             synchronized (server.logs) {
                 for (String l : server.logs) {
                     if (l == null) break;
@@ -53,6 +74,9 @@ public class Main {
     public static void main(String[] args) throws InterruptedException {
         parser = new Parser(args);
         parser.parse();
+        try {
+            writer = new FileWriter(parser.output());
+        } catch (IOException ignored){}
 
         initSignalHandlers();
 
@@ -82,6 +106,7 @@ public class Main {
 
         System.out.println("Doing some initialization\n");
         startSever();
+        timer.scheduleAtFixedRate(dumpLogs, 500, 2000);
 
         System.out.println("Broadcasting and delivering messages...\n");
         runLattice();

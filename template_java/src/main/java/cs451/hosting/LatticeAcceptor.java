@@ -12,12 +12,12 @@ class AcceptorRound {
     static Map<Integer, Integer> index2value = new HashMap<>();
     Integer round_number;
     BitSet accepted_value;
-    int nDecided;
+    BitSet decided;
 
-    public AcceptorRound(int round_number, int nValues) {
+    public AcceptorRound(int round_number, int nValues, int nHosts) {
         this.round_number = round_number;
         accepted_value = new BitSet(nValues);
-        nDecided = 0;
+        decided = new BitSet(nHosts);
     }
 
     public void setAccepted_value(Set<Integer> accepted_set) {
@@ -40,6 +40,13 @@ class AcceptorRound {
             }
         }
         return ret;
+    }
+
+    public boolean allDecided() {
+        for (int i = 0; i < decided.size(); i++) {
+            if (!decided.get(i)) return false;
+        }
+        return true;
     }
 
     @Override
@@ -71,7 +78,7 @@ public class LatticeAcceptor {
         Optional<AcceptorRound> optRound = rounds.stream().filter(it -> it.round_number == round_number).findAny();
         AcceptorRound round;
         if (optRound.isEmpty()) {
-            round = new AcceptorRound(round_number, nValues);
+            round = new AcceptorRound(round_number, nValues, server.hosts.size());
             rounds.add(round);
         } else {
             round = optRound.get();
@@ -107,13 +114,13 @@ public class LatticeAcceptor {
         Optional<AcceptorRound> optRound = rounds.stream().filter(it -> it.round_number == round_number).findAny();
         AcceptorRound round;
         if (optRound.isEmpty()) {
-            round = new AcceptorRound(round_number, nValues);
+            round = new AcceptorRound(round_number, nValues, server.hosts.size());
             rounds.add(round);
         } else {
             round = optRound.get();
         }
-        round.nDecided++;
-        if (round.nDecided == server.hosts.size()) {
+        round.decided.set(hostID - 1);
+        if (round.allDecided()) {
             rounds.remove(round);
         }
     }
