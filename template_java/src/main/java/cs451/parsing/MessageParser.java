@@ -15,6 +15,8 @@ public class MessageParser {
     public static byte LATTICE_ACK_PREFIX = 1;
     public static byte LATTICE_NACK_PREFIX = 2;
     public static byte LATTICE_PROPOSAL_PREFIX = 3;
+    public static byte LATTICE_DECIDED_PREFIX = 4;
+    public static byte ACK_ACK_PREFIX = 5;
     public static Message createAck(int acked_id) {
         return new Message(ACK_PREFIX, ByteBuffer.allocate(4).putInt(acked_id).array());
     }
@@ -24,6 +26,30 @@ public class MessageParser {
         bb.putInt(round_number);
         bb.putInt(proposal_number);
         return new Message(LATTICE_ACK_PREFIX, bb.array());
+    }
+
+    public static Message createDecided(int round_number) {
+        ByteBuffer bb = ByteBuffer.allocate(4);
+        bb.putInt(round_number);
+        return new Message(LATTICE_DECIDED_PREFIX, bb.array());
+    }
+
+    public static int getDecidedRound(Message message) {
+        return getInt(message.content, 0);
+    }
+
+    public static int getAckedID(Message message) {
+        return getInt(message.content, 0);
+    }
+
+    public static Message createAckAck(int originalID) {
+        ByteBuffer bb = ByteBuffer.allocate(4);
+        bb.putInt(originalID);
+        return new Message(ACK_ACK_PREFIX, bb.array());
+    }
+
+    public static int getAckAckID(Message message) {
+        return getInt(message.content, 0);
     }
 
     public static MyTriple parseLatticeAck(Message message) {

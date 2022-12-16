@@ -126,6 +126,7 @@ public class Sender extends Thread {
 
     public void acknowledge(Message message, String ip, int port) {
         Message ack = MessageParser.createAck(message.id);
+//        System.out.println("Sending ack " + ack.id + " to message " + message.id);
         sendMessageFLL(ack.getBytesWithLength(), ip, port);
     }
 
@@ -152,6 +153,14 @@ public class Sender extends Thread {
     }
 
 
+    public Message getMessage(Host receiver, int id) {
+        List<Message> messages = receiversToMessages.get(receiver.getId());
+        synchronized (messages) {
+            Optional<Message> optMessage = messages.stream().filter(it -> it.id == id).findAny();
+            return optMessage.orElse(null);
+        }
+    }
+
     public void acknowledged(Host receiver, int id) {
         List<Message> messages = receiversToMessages.get(receiver.getId());
         synchronized (messages) {
@@ -165,7 +174,7 @@ public class Sender extends Thread {
         }
     }
 
-    public void updateQueues() {
+    private void updateQueues() {
         for (Host host : server.hosts) {
             List<Message> messages = receiversToMessages.get(host.getId());
             synchronized (messages) {

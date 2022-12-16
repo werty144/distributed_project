@@ -17,7 +17,7 @@ public class Server {
     public List<Host> hosts;
     public LatticeAcceptor latticeAcceptor;
     public LatticeProposer latticeProposer;
-    public List<String> logs = new ArrayList<>();
+    public final List<String> logs = Collections.synchronizedList(new ArrayList<>());
 
 
 
@@ -58,9 +58,14 @@ public class Server {
         this.sender.acknowledge(message, ip, port);
     }
 
-    public void receiveAcknowledgement(String ip, int port, Message message) {
+    public void receiveAcknowledgement(String ip, int port, int ackedID) {
         Host sender = getHost(ip, port);
-        this.sender.acknowledged(sender, message.id);
+        Message original = this.sender.getMessage(sender, ackedID);
+        if (original != null && original.type != MessageParser.ACK_ACK_PREFIX) {
+            Message ackAckMessage = MessageParser.createAckAck(ackedID);
+            this.sendMessageSL(ackAckMessage, sender);
+        }
+        this.sender.acknowledged(sender, ackedID);
     }
 
     public void sendMessageSL(Message message, Host host) {

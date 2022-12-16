@@ -29,8 +29,11 @@ public class Main {
     private static void logServerOutput() {
         try {
             FileWriter writer = new FileWriter(parser.output());
-            for (String l : server.logs) {
-                writer.write(l + "\n");
+            synchronized (server.logs) {
+                for (String l : server.logs) {
+                    if (l == null) break;
+                    writer.write(l + "\n");
+                }
             }
             writer.close();
         } catch (Exception e) {
@@ -111,6 +114,7 @@ public class Main {
         int p = Integer.parseInt(args[0]);
         int vs = Integer.parseInt(args[1]);
         int ds = Integer.parseInt(args[2]);
+        server.latticeAcceptor.setnValues(ds);
         ArrayList<Set<Integer>> proposals = new ArrayList<>();
         for (int i = 0; i < p; i++) {
             Set<Integer> proposal = new HashSet<>();
@@ -118,8 +122,7 @@ public class Main {
             for (String num : nums) {
                 proposal.add(Integer.parseInt(num));
             }
-            Round curRound = server.latticeProposer.propose(proposal);
-            while (!curRound.finished) {
+            while (!server.latticeProposer.propose(proposal)) {
                 try {
                     sleep(10);
                 } catch (InterruptedException ignored){}

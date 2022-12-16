@@ -154,6 +154,7 @@ def check_consistency(names, proposals, decisions):
 				if not consistency_check:
 					print(f"Violated consistency for {name} and {other} at round {i + 1}")
 
+
 def check_termination(names, proposals, decisions):
 	for name in names:
 		termination_check = len(proposals[name]) == len(decisions[name])
@@ -174,10 +175,12 @@ def main():
 	proposals = {name: get_proposals(name) for name in names}
 	decisions = {name: get_decisions(name) for name in names}
 
-	check_validity(names, proposals, decisions)
-	check_consistency(names, proposals, decisions)
 	check_termination(names, proposals, decisions)
-
+	print("Checked termination")
+	check_validity(names, proposals, decisions)
+	print("Checked validity")
+	check_consistency(names, proposals, decisions)
+	print("Checked consistency")
 
 
 

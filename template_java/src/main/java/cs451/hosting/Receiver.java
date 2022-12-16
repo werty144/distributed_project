@@ -82,11 +82,18 @@ public class Receiver extends Thread {
 
     private void receiveFLL(Message message, String ip, int port) {
         if (message.type == MessageParser.ACK_PREFIX) {
+            int ackedID = MessageParser.getAckedID(message);
             server.receiveAcknowledgement(
                     ip,
                     port,
-                    message
+                    ackedID
             );
+            return;
+        }
+        if (message.type == MessageParser.ACK_ACK_PREFIX) {
+            int originalID = MessageParser.getAckAckID(message);
+            PLMessages.get(server.getHost(ip, port).getId()).remove(originalID);
+            server.acknowledge(ip, port, message);
             return;
         }
         server.receiveMessageFLL(ip, port, message);
@@ -118,6 +125,11 @@ public class Receiver extends Thread {
                     ans.proposal_number,
                     server.getHost(ip, port)
             );
+        }
+
+        if (message.type == MessageParser.LATTICE_DECIDED_PREFIX) {
+            int decidedRound = MessageParser.getDecidedRound(message);
+            server.latticeAcceptor.hostDecided(decidedRound, senderID);
         }
     }
 }

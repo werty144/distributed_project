@@ -5,15 +5,16 @@ import cs451.parsing.MessageParser;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Message {
-    static int spareID = 0;
+    static AtomicInteger spareID = new AtomicInteger(0);
     public int id;
     public byte type;
     public byte[] content;
 
     public Message(byte type, byte[] content) {
-        id = spareID++;
+        id = spareID.getAndIncrement();
         this.type = type;
         this.content = content;
     }

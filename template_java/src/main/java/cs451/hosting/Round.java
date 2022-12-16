@@ -5,7 +5,6 @@ import java.util.Set;
 public class Round {
     int round_number;
     boolean active = false;
-    public boolean finished = false;
     int ack_count = 0;
     int nack_count = 0;
     int active_proposal_number = 0;
